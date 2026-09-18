@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    />
+    <title>You were away</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+        background: #161a22;
+        color: #e7ebf3;
+        user-select: none;
+        overflow: hidden;
+      }
+      .card {
+        height: 100%;
+        border: 1px solid #2c3342;
+        border-radius: 14px;
+        padding: 20px 22px 18px;
+        display: flex;
+        flex-direction: column;
+      }
+      .head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 4px;
+      }
+      .badge {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        background: rgba(215, 155, 40, 0.16);
+        color: #eab861;
+        display: grid;
+        place-items: center;
+        font-size: 17px;
+      }
+      h1 {
+        font-size: 17px;
+        margin: 0;
+        font-weight: 600;
+      }
+      .sub {
+        color: #98a2b8;
+        font-size: 12.5px;
+        margin: 2px 0 14px;
+      }
+      .facts {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      .fact {
+        background: #1a1e27;
+        border: 1px solid #2c3342;
+        border-radius: 10px;
+        padding: 9px 10px;
+      }
+      .fact b {
+        display: block;
+        font-size: 15px;
+        font-variant-numeric: tabular-nums;
+      }
+      .fact span {
+        font-size: 10.5px;
+        color: #98a2b8;
+      }
+      .choices {
+        display: grid;
+        gap: 7px;
+      }
+      .choice {
+        text-align: left;
+        border: 1px solid #2c3342;
+        background: #1a1e27;
+        color: #e7ebf3;
+        border-radius: 11px;
+        padding: 10px 13px;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 13px;
+        line-height: 1.35;
+      }
+      .choice:hover {
+        border-color: #3d4759;
+        background: #212633;
+      }
+      .choice b {
+        display: block;
+        font-weight: 600;
+      }
+      .choice em {
+        font-style: normal;
+        color: #98a2b8;
+        font-size: 11.5px;
+      }
+      .choice.primary {
+        background: #e0483f;
+        border-color: transparent;
+      }
+      .choice.primary em {
+        color: rgba(255, 255, 255, 0.82);
+      }
+      .foot {
+        margin-top: auto;
+        padding-top: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: #98a2b8;
+      }
+      .foot input {
+        accent-color: #e0483f;
+        width: 15px;
+        height: 15px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="head">
+        <div class="badge">⏸</div>
+        <div>
+          <h1 id="title">You were away for 12 minutes</h1>
+          <div class="sub" id="sub">Your focus clock was frozen at your last keystroke.</div>
+        </div>
+      </div>
+
+      <div class="facts">
+        <div class="fact"><b id="f-left">—</b><span>stepped away</span></div>
+        <div class="fact"><b id="f-back">—</b><span>came back</span></div>
+        <div class="fact"><b id="f-away">—</b><span>idle time</span></div>
+      </div>
+
+      <div class="choices">
+        <button class="choice primary" data-choice="discard">
+          <b>Remove the idle time and carry on</b>
+          <em id="e-discard">The pomodoro resumes where you left it.</em>
+        </button>
+        <button class="choice" data-choice="keep">
+          <b>Count it as work</b>
+          <em>I was working away from the keyboard — reading, thinking, on a call.</em>
+        </button>
+        <button class="choice" data-choice="cut">
+          <b>End the pomodoro where I left</b>
+          <em id="e-cut">Log the focus time up to that point and stop.</em>
+        </button>
+        <button class="choice" data-choice="break">
+          <b>End it and start a break</b>
+          <em>Treat the time away as the start of a break.</em>
+        </button>
+        <button class="choice" data-choice="pause">
+          <b>Leave it paused</b>
+          <em>I'm not ready to start again yet.</em>
+        </button>
+      </div>
+
+      <label class="foot">
+        <input type="checkbox" id="remember" />
+        Always do this without asking
+      </label>
+    </div>
+    <script src="idle.js"></script>
+  </body>
+</html>

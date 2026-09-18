@@ -1,0 +1,82 @@
+{
+  "name": "ferna-pomoro",
+  "productName": "Ferna Pomoro",
+  "version": "1.1.1",
+  "description": "A focus timer for Windows with idle-time detection, manual time entry, break alerts and taskbar progress.",
+  "main": "src/main/main.js",
+  "author": {
+    "name": "TGI Fernando",
+    "email": "tgi.fernando@gmail.com"
+  },
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test",
+    "dist": "electron-builder --win --x64",
+    "pack": "electron-builder --win --x64 --dir",
+    "selftest": "xvfb-run -a electron . --selftest --no-sandbox"
+  },
+  "devDependencies": {
+    "electron": "44.4.2",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "lk.ac.sjp.ferna-pomoro",
+    "productName": "Ferna Pomoro",
+    "copyright": "Copyright \u00a9 2026 TGI Fernando",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "Ferna-Pomoro-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Ferna-Pomoro-Portable-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Ferna Pomoro",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "deleteAppDataOnUninstall": false
+    },
+    "publish": null,
+    "asarUnpack": [
+      "assets/icons/**"
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OWNER/ferna-pomoro.git"
+  },
+  "homepage": "https://github.com/OWNER/ferna-pomoro",
+  "bugs": {
+    "url": "https://github.com/OWNER/ferna-pomoro/issues"
+  }
+}

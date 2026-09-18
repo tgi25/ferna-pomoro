@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    />
+    <title>Ferna Pomoro break</title>
+    <style>
+      :root {
+        --accent: #1f9d63;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+        color: #e9eef6;
+        background: radial-gradient(1200px 700px at 50% 30%, #182029 0%, #0d1117 70%);
+        user-select: none;
+      }
+      .wrap {
+        height: 100%;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        padding: 40px;
+      }
+      .kicker {
+        font-size: 13px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-bottom: 18px;
+      }
+      .clock {
+        font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
+        font-size: 108px;
+        font-weight: 600;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+        margin-bottom: 10px;
+      }
+      .suggestion {
+        font-size: 20px;
+        color: #cbd4e2;
+        max-width: 620px;
+        margin: 0 auto 8px;
+        line-height: 1.5;
+      }
+      .today {
+        font-size: 13.5px;
+        color: #8d97ab;
+        margin-bottom: 30px;
+      }
+      .ring {
+        width: 280px;
+        height: 6px;
+        border-radius: 3px;
+        background: rgba(255, 255, 255, 0.09);
+        margin: 0 auto 30px;
+        overflow: hidden;
+      }
+      .ring > div {
+        height: 100%;
+        width: 0;
+        background: var(--accent);
+        transition: width 0.5s linear;
+      }
+      button {
+        font-family: inherit;
+        font-size: 14px;
+        padding: 11px 24px;
+        border-radius: 11px;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        background: rgba(255, 255, 255, 0.06);
+        color: #e9eef6;
+        cursor: pointer;
+        margin: 0 5px;
+      }
+      button:hover {
+        background: rgba(255, 255, 255, 0.13);
+      }
+      button.primary {
+        background: var(--accent);
+        border-color: transparent;
+        font-weight: 600;
+      }
+      .footnote {
+        margin: 18px auto 0;
+        font-size: 12.5px;
+        color: #79839a;
+        max-width: 520px;
+      }
+      .secondary-only .clock {
+        font-size: 64px;
+      }
+      .hidden {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div>
+        <div class="kicker" id="kicker">Short break</div>
+        <div class="clock" id="clock">05:00</div>
+        <div class="ring"><div id="fill"></div></div>
+        <p class="suggestion" id="suggestion">Stand up and roll your shoulders.</p>
+        <p class="today" id="today"></p>
+        <div id="actions">
+          <button id="hide">Close this window</button>
+          <button id="extend">+5 minutes</button>
+          <button class="primary" id="back">Back to work now</button>
+        </div>
+        <p class="footnote" id="footnote">
+          Closing the window leaves the break running — the tray and taskbar keep the countdown.
+        </p>
+      </div>
+    </div>
+    <script src="overlay.js"></script>
+  </body>
+</html>

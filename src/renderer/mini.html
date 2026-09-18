@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    />
+    <title>Ferna Pomoro mini</title>
+    <style>
+      :root {
+        --accent: #e0483f;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: transparent;
+        font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+        color: #e7ebf3;
+        user-select: none;
+        overflow: hidden;
+      }
+      .mini {
+        height: 100%;
+        margin: 6px;
+        border-radius: 14px;
+        background: rgba(20, 22, 28, 0.94);
+        border: 1px solid #2c3342;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        padding: 8px 12px 10px;
+        -webkit-app-region: drag;
+      }
+      .top {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 10.5px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #98a2b8;
+      }
+      .pip {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+      .close {
+        margin-left: auto;
+        -webkit-app-region: no-drag;
+        border: 0;
+        background: transparent;
+        color: #98a2b8;
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 1;
+        padding: 2px 4px;
+        border-radius: 5px;
+      }
+      .close:hover {
+        background: #212633;
+        color: #e7ebf3;
+      }
+      .clock {
+        font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
+        font-size: 34px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        line-height: 1;
+        align-self: center;
+      }
+      .bar {
+        height: 4px;
+        border-radius: 2px;
+        background: #212633;
+        overflow: hidden;
+        margin-bottom: 7px;
+      }
+      .fill {
+        height: 100%;
+        width: 0;
+        background: var(--accent);
+        transition: width 0.4s linear;
+      }
+      .row {
+        display: flex;
+        gap: 6px;
+        -webkit-app-region: no-drag;
+      }
+      button.act {
+        flex: 1;
+        border: 1px solid #2c3342;
+        background: #212633;
+        color: #e7ebf3;
+        border-radius: 8px;
+        padding: 5px 0;
+        font-size: 11.5px;
+        font-family: inherit;
+        cursor: pointer;
+      }
+      button.act:hover {
+        filter: brightness(1.2);
+      }
+      .primary {
+        background: var(--accent);
+        border-color: transparent;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="mini">
+      <div class="top">
+        <span class="pip" id="pip"></span>
+        <span id="phase">Ready</span>
+        <button class="close" id="close" title="Hide mini timer">✕</button>
+      </div>
+      <div class="clock" id="clock">25:00</div>
+      <div>
+        <div class="bar"><div class="fill" id="fill"></div></div>
+        <div class="row">
+          <button class="act primary" id="toggle">Start</button>
+          <button class="act" id="skip">Skip</button>
+          <button class="act" id="open">Open</button>
+        </div>
+      </div>
+    </div>
+    <script src="mini.js"></script>
+  </body>
+</html>

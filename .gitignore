@@ -1,0 +1,12 @@
+node_modules/
+dist/
+docs/shots/*.tmp
+*.log
+.DS_Store
+Thumbs.db
+
+# Local build scratch
+build/icon.ico.tmp
+tools/video/build/
+tools/video/build-social/
+tools/video/*.mp4

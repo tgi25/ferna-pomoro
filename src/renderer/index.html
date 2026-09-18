@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; img-src 'self' data: file:; media-src 'self' file:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self'"
+    />
+    <title>Ferna Pomoro</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="app">
+    <nav class="rail">
+      <div class="rail__brand" title="Ferna Pomoro">
+        <img src="../../assets/icons/pomora-64.png" alt="" width="38" height="38" />
+      </div>
+      <button class="rail__btn is-active" data-tab="timer" title="Timer">
+        <span class="ico">◷</span><span class="rail__label">Timer</span>
+      </button>
+      <button class="rail__btn" data-tab="tasks" title="Tasks">
+        <span class="ico">☑</span><span class="rail__label">Tasks</span>
+      </button>
+      <button class="rail__btn" data-tab="stats" title="Statistics">
+        <span class="ico">▦</span><span class="rail__label">Stats</span>
+      </button>
+      <button class="rail__btn" data-tab="settings" title="Settings">
+        <span class="ico">⚙</span><span class="rail__label">Settings</span>
+      </button>
+      <div class="rail__spacer"></div>
+      <button class="rail__btn" id="btn-mini" title="Mini timer (always on top)">
+        <span class="ico">▭</span><span class="rail__label">Mini</span>
+      </button>
+    </nav>
+
+    <main class="content">
+      <!-- ------------------------------------------------------- TIMER -->
+      <section class="pane is-active" data-pane="timer">
+        <div id="away-banner" class="banner hidden">
+          <span class="banner__icon">⏸</span>
+          <div>
+            <strong>Timer frozen — you stepped away.</strong>
+            <span id="away-banner-text">Your focus clock stopped the moment the keyboard went quiet.</span>
+          </div>
+          <button class="btn btn--ghost" id="away-banner-resume">Resume</button>
+        </div>
+
+        <div class="phase-tabs">
+          <button class="phase-tab" data-phase="work">Focus</button>
+          <button class="phase-tab" data-phase="shortBreak">Short break</button>
+          <button class="phase-tab" data-phase="longBreak">Long break</button>
+        </div>
+
+        <div class="dial">
+          <svg viewBox="0 0 240 240" class="dial__svg" aria-hidden="true">
+            <circle class="dial__track" cx="120" cy="120" r="108" />
+            <circle id="dial-arc" class="dial__arc" cx="120" cy="120" r="108" />
+          </svg>
+          <div class="dial__face">
+            <div id="clock" class="dial__clock">25:00</div>
+            <div id="phase-label" class="dial__phase">Ready</div>
+            <div id="dial-note" class="dial__note"></div>
+          </div>
+        </div>
+
+        <div id="cycle-dots" class="cycle" title="Pomodoros until the long break"></div>
+
+        <div id="task-strip" class="task-strip">
+          <span class="task-strip__label">Working on</span>
+          <span id="task-strip-title" class="task-strip__title">Nothing selected</span>
+          <button class="btn btn--link" data-tab-link="tasks">Change</button>
+        </div>
+
+        <div class="controls">
+          <button id="btn-primary" class="btn btn--primary btn--lg">Start focus</button>
+          <button id="btn-skip" class="btn">Skip</button>
+          <button id="btn-reset" class="btn">Restart</button>
+          <button id="btn-stop" class="btn btn--quiet">Stop</button>
+        </div>
+
+        <button id="btn-break-screen" class="btn btn--ghost hidden">Show break screen</button>
+
+        <div class="chips">
+          <div class="chip">
+            <span class="chip__value" id="chip-focus">0m</span>
+            <span class="chip__label">focused today</span>
+          </div>
+          <div class="chip">
+            <span class="chip__value" id="chip-pom">0</span>
+            <span class="chip__label">pomodoros</span>
+          </div>
+          <div class="chip">
+            <span class="chip__value" id="chip-idle">0m</span>
+            <span class="chip__label">idle removed</span>
+          </div>
+          <div class="chip">
+            <span class="chip__value" id="chip-streak">0</span>
+            <span class="chip__label">day streak</span>
+          </div>
+        </div>
+
+        <div class="goal">
+          <div class="goal__bar"><div id="goal-fill" class="goal__fill"></div></div>
+          <div class="goal__text" id="goal-text">0 of 8 pomodoros</div>
+        </div>
+      </section>
+
+      <!-- ------------------------------------------------------- TASKS -->
+      <section class="pane" data-pane="tasks">
+        <header class="pane__head">
+          <h1>Tasks</h1>
+          <button class="btn btn--quiet" id="btn-clear-done">Clear completed</button>
+        </header>
+        <form id="task-form" class="task-form">
+          <input id="task-title" type="text" placeholder="What are you working on?" maxlength="200" autocomplete="off" />
+          <input id="task-estimate" type="number" min="0" max="99" value="1" title="Estimated pomodoros" />
+          <button class="btn btn--primary" type="submit">Add</button>
+        </form>
+        <ul id="task-list" class="task-list"></ul>
+        <p class="hint">
+          The selected task collects the focus time of every pomodoro you run while it is active.
+        </p>
+      </section>
+
+      <!-- ------------------------------------------------------- STATS -->
+      <section class="pane" data-pane="stats">
+        <header class="pane__head">
+          <h1>Statistics</h1>
+          <div class="pane__actions">
+            <button class="btn btn--quiet" id="btn-open-folder">Data folder</button>
+            <button class="btn" id="btn-export">Export CSV</button>
+          </div>
+        </header>
+
+        <div class="stat-grid">
+          <div class="stat"><span id="stat-focus" class="stat__v">0m</span><span class="stat__l">focus today</span></div>
+          <div class="stat"><span id="stat-pom" class="stat__v">0</span><span class="stat__l">pomodoros today</span></div>
+          <div class="stat"><span id="stat-idle" class="stat__v">0m</span><span class="stat__l">idle removed today</span></div>
+          <div class="stat"><span id="stat-week" class="stat__v">0h</span><span class="stat__l">last 7 days</span></div>
+          <div class="stat"><span id="stat-streak" class="stat__v">0</span><span class="stat__l">day streak</span></div>
+          <div class="stat"><span id="stat-int" class="stat__v">0</span><span class="stat__l">interruptions today</span></div>
+          <div class="stat"><span id="stat-manual" class="stat__v">0m</span><span class="stat__l">added by hand today</span></div>
+        </div>
+
+        <h2 class="section-title">Forgot to start the timer?</h2>
+        <form id="manual-form" class="manual">
+          <label class="field"><span>Date</span><input type="date" id="m-date" required /></label>
+          <label class="field"><span>Started at</span><input type="time" id="m-time" required /></label>
+          <label class="field"><span>Minutes</span><input type="number" id="m-min" min="1" max="960" value="25" required /></label>
+          <label class="field"><span>Count as</span><input type="number" id="m-pom" min="0" max="50" value="1" title="Pomodoros to credit" /></label>
+          <label class="field field--wide"><span>Task</span><select id="m-task"><option value="">No task</option></select></label>
+          <label class="field field--wide"><span>Note</span><input type="text" id="m-note" maxlength="300" placeholder="What were you working on?" /></label>
+          <button class="btn btn--primary" type="submit" id="m-add">Add focus time</button>
+          <p class="hint" id="m-hint">Back-dated entries land on the day you pick and are marked <em>manual</em> in the log, so you can tell them from timed sessions — and remove them again.</p>
+        </form>
+
+        <h2 class="section-title">Last 14 days</h2>
+        <div id="chart" class="chart"></div>
+
+        <h2 class="section-title">Today's sessions</h2>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr><th>Start</th><th>Type</th><th>Length</th><th>Idle removed</th><th>Outcome</th><th></th></tr>
+            </thead>
+            <tbody id="session-rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ---------------------------------------------------- SETTINGS -->
+      <section class="pane" data-pane="settings">
+        <header class="pane__head">
+          <h1>Settings</h1>
+          <button class="btn btn--quiet" id="btn-reset-settings">Restore defaults</button>
+        </header>
+
+        <div class="settings">
+          <fieldset class="card">
+            <legend>Durations</legend>
+            <label class="row"><span>Focus session</span><input type="number" min="1" max="180" data-setting="workMin" /><em>min</em></label>
+            <label class="row"><span>Short break</span><input type="number" min="1" max="60" data-setting="shortMin" /><em>min</em></label>
+            <label class="row"><span>Long break</span><input type="number" min="1" max="120" data-setting="longMin" /><em>min</em></label>
+            <label class="row"><span>Long break after</span><input type="number" min="2" max="12" data-setting="longBreakInterval" /><em>pomodoros</em></label>
+            <label class="row"><span>Daily goal</span><input type="number" min="0" max="30" data-setting="dailyGoal" /><em>pomodoros</em></label>
+          </fieldset>
+
+          <fieldset class="card">
+            <legend>Flow</legend>
+            <label class="row"><span>Start breaks automatically</span><input type="checkbox" data-setting="autoStartBreaks" /></label>
+            <label class="row"><span>Start the next focus session automatically</span><input type="checkbox" data-setting="autoStartWork" /></label>
+            <label class="row"><span>Keep counting after the bell (overtime)</span><input type="checkbox" data-setting="allowOvertime" /></label>
+            <label class="row"><span>Show the full-screen break window</span><input type="checkbox" data-setting="breakOverlay" /></label>
+            <label class="row"><span>Let me close it and keep the break running</span><input type="checkbox" data-setting="overlayCanHide" /></label>
+            <label class="row"><span>Let me end the break early from it</span><input type="checkbox" data-setting="overlayDismissable" /></label>
+            <label class="row"><span>Tell me when a break ends with the window closed</span><input type="checkbox" data-setting="overlayReminder" /></label>
+          </fieldset>
+
+          <fieldset class="card">
+            <legend>Idle detection</legend>
+            <label class="row"><span>Notice when I leave the computer</span><input type="checkbox" data-setting="idleDetection" /></label>
+            <label class="row"><span>Consider me away after</span><input type="number" min="1" max="60" data-setting="idleMin" /><em>min of no input</em></label>
+            <label class="row">
+              <span>When I come back</span>
+              <select data-setting="idleAction">
+                <option value="ask">Ask what to do</option>
+                <option value="discard">Remove the idle time silently</option>
+                <option value="keep">Count it as work</option>
+                <option value="stop">End the pomodoro where I left</option>
+              </select>
+            </label>
+            <p class="hint">
+              While you are away the focus clock is frozen at the moment of your last keystroke, so
+              idle time is never counted as work — even if the machine sleeps.
+            </p>
+          </fieldset>
+
+          <fieldset class="card">
+            <legend>Alerts</legend>
+            <label class="row"><span>Desktop notifications</span><input type="checkbox" data-setting="notifications" /></label>
+            <label class="row"><span>Sound</span><input type="checkbox" data-setting="soundEnabled" /></label>
+            <label class="row"><span>Volume</span><input type="range" min="0" max="100" data-setting="volumePct" /></label>
+            <label class="row"><span>Ticking while focusing</span><input type="checkbox" data-setting="tickingEnabled" /></label>
+            <div class="row row--buttons">
+              <span>Preview</span>
+              <span class="btn-group">
+                <button class="btn btn--sm" data-sound="work-start">Work</button>
+                <button class="btn btn--sm" data-sound="short-break">Short break</button>
+                <button class="btn btn--sm" data-sound="long-break">Long break</button>
+                <button class="btn btn--sm" data-sound="back-to-work">Back to work</button>
+              </span>
+            </div>
+          </fieldset>
+
+          <fieldset class="card">
+            <legend>Taskbar &amp; tray</legend>
+            <label class="row"><span>Fill the taskbar button as the session runs</span><input type="checkbox" data-setting="taskbarProgress" /></label>
+            <label class="row">
+              <span>Taskbar badge shows</span>
+              <select data-setting="overlayBadge">
+                <option value="pomodoros">Pomodoros done today</option>
+                <option value="focusTime">Time worked today</option>
+                <option value="remaining">Minutes left in this session</option>
+                <option value="off">Nothing</option>
+              </select>
+            </label>
+            <label class="row"><span>Countdown in the window title</span><input type="checkbox" data-setting="titleCountdown" /></label>
+            <label class="row"><span>Countdown on the tray icon</span><input type="checkbox" data-setting="trayCountdown" /></label>
+            <label class="row"><span>Minimise to tray</span><input type="checkbox" data-setting="minimizeToTray" /></label>
+            <label class="row"><span>Close to tray</span><input type="checkbox" data-setting="closeToTray" /></label>
+            <label class="row"><span>Mini timer stays on top</span><input type="checkbox" data-setting="alwaysOnTopMini" /></label>
+            <label class="row"><span>Start Pomora when Windows starts</span><input type="checkbox" data-setting="launchOnStartup" /></label>
+          </fieldset>
+
+          <fieldset class="card">
+            <legend>Global shortcuts</legend>
+            <label class="row"><span>Start / pause</span><input type="text" data-setting="shortcutToggle" spellcheck="false" /></label>
+            <label class="row"><span>Skip phase</span><input type="text" data-setting="shortcutSkip" spellcheck="false" /></label>
+            <label class="row"><span>Mini timer</span><input type="text" data-setting="shortcutMini" spellcheck="false" /></label>
+            <p class="hint">Use Electron accelerators, e.g. <code>CommandOrControl+Alt+P</code>.</p>
+          </fieldset>
+        </div>
+        <p class="version" id="version"></p>
+      </section>
+    </main>
+
+    <audio id="audio" preload="auto"></audio>
+    <script src="app.js"></script>
+  </body>
+</html>

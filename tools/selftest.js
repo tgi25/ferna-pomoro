@@ -1,0 +1,228 @@
+'use strict';
+
+/**
+ * Integration smoke test. Runs inside a real Electron process against the real
+ * app object, so it covers the parts unit tests cannot: window creation, the
+ * canvas-drawn taskbar/tray images, the idle freeze path end to end, and the
+ * IPC command surface.
+ *
+ *   xvfb-run -a npx electron . --selftest
+ *
+ * Exits 0 when every check passes, 1 otherwise.
+ */
+const { app } = require('electron');
+const { PHASE, STATUS, MINUTE } = require('../src/shared/constants');
+
+const results = [];
+const check = (name, ok, detail = '') => {
+  results.push({ name, ok, detail });
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  — ${detail}` : ''}`);
+};
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function run(pomora) {
+  const { engine, store } = pomora;
+
+  // --- windows ------------------------------------------------------------
+  check('main window created', !!pomora.win && !pomora.win.isDestroyed());
+  check('tray created', !!pomora.tray && !pomora.tray.isDestroyed());
+
+  // --- images (canvas drawing in the hidden helper window) ----------------
+  const badge = await pomora.images.overlayBadge('3', '#e0483f', { ring: 0.4 });
+  check('taskbar badge renders', !badge.isEmpty(), `${badge.getSize().width}px`);
+  const tray = await pomora.images.trayIcon({ label: '24', color: '#e0483f', progress: 0.3 });
+  check('tray icon renders', !tray.isEmpty(), `${tray.getSize().width}px`);
+  const glyph = await pomora.images.glyph('pause');
+  check('thumbar glyph renders', !glyph.isEmpty());
+
+  // --- timer --------------------------------------------------------------
+  pomora.command('timer:start');
+  check('work phase starts', engine.phase === PHASE.WORK && engine.status === STATUS.RUNNING);
+
+  const st = pomora.buildState();
+  check('state carries a clock and colour', /^\d{2}:\d{2}$/.test(st.clock) && !!st.color, st.clock);
+
+  pomora.command('timer:toggle');
+  check('pause works', engine.status === STATUS.PAUSED);
+  pomora.command('timer:toggle');
+  check('resume works', engine.status === STATUS.RUNNING);
+
+  // --- taskbar indicator --------------------------------------------------
+  await pomora.taskbar.update(engine.snapshot());
+  check('taskbar updated without throwing', true, pomora.win.getTitle());
+  check('window title counts down', /\d\d:\d\d/.test(pomora.win.getTitle()), pomora.win.getTitle());
+
+  // --- the idle story -----------------------------------------------------
+  // Pretend the user worked 8 minutes, then walked away 20 minutes ago.
+  const now = Date.now();
+  engine.accumulatedMs = 8 * MINUTE;
+  engine.startedAt = now;
+  const awayStart = now;
+
+  pomora.store.updateSettings({ idleAction: 'ask', idleDetection: true });
+  pomora.beginAway(awayStart);
+  check('clock freezes when the user leaves', engine.status === STATUS.PAUSED);
+  const frozenElapsed = engine.elapsedMs();
+  await wait(60);
+  check(
+    'no time accrues while away',
+    Math.abs(engine.elapsedMs() - frozenElapsed) < 5,
+    `${Math.round(frozenElapsed / 1000)}s held`
+  );
+
+  pomora.endAway(awayStart, Date.now() + 20 * MINUTE, { source: 'input' });
+  check('return raises the idle question', !!pomora.pendingIdle, `${pomora.pendingIdle ? Math.round(pomora.pendingIdle.idleMs / MINUTE) : 0} min away`);
+
+  pomora.resolveIdle('discard');
+  check('discarding idle resumes the pomodoro', engine.status === STATUS.RUNNING);
+  check(
+    'discarded idle did not advance the clock',
+    Math.abs(engine.elapsedMs() - frozenElapsed) < 2000,
+    `${Math.round(engine.elapsedMs() / 1000)}s elapsed`
+  );
+
+  // Keeping the idle time instead.
+  pomora.beginAway(Date.now());
+  pomora.endAway(Date.now(), Date.now() + 10 * MINUTE, { source: 'input' });
+  const before = engine.elapsedMs();
+  pomora.resolveIdle('keep');
+  check(
+    'keeping idle adds it back as work',
+    engine.elapsedMs() - before >= 9.5 * MINUTE,
+    `+${Math.round((engine.elapsedMs() - before) / MINUTE)} min`
+  );
+
+  // --- breaks and the back-to-work path -----------------------------------
+  pomora.command('timer:stop');
+  engine.startPhase(PHASE.SHORT_BREAK);
+  await wait(50);
+  check('break curtain shows', pomora.overlays.some((w) => !w.isDestroyed() && w.isVisible()));
+
+  engine.updateSettings({ autoStartWork: false });
+  engine.targetMs = 200;
+  await wait(320);
+  engine.tick();
+  check('break ends into a waiting state', engine.status === STATUS.AWAITING && engine.nextPhase === PHASE.WORK);
+
+  pomora.watcher.away = true;
+  pomora.awayState = { awayStart: Date.now() - MINUTE, frozen: false, phase: PHASE.SHORT_BREAK };
+  pomora.endAway(Date.now() - MINUTE, Date.now(), { source: 'input' });
+  check('coming back after a break still waits for the user', engine.status === STATUS.AWAITING);
+  pomora.watcher.away = false;
+
+  pomora.command('timer:accept');
+  check('accepting starts the next work session', engine.phase === PHASE.WORK);
+
+  // --- the break window can be closed without ending the break ------------
+  pomora.command('timer:stop');
+  pomora.store.updateSettings({ breakOverlay: true, overlayCanHide: true });
+  engine.startPhase(PHASE.SHORT_BREAK);
+  await wait(400);
+  check('break window opens with the break', pomora.overlayIsVisible());
+
+  pomora.command('overlay:hide', { silent: true });
+  await wait(120);
+  check('closing the break window hides it', !pomora.overlayIsVisible());
+  check(
+    'the break keeps running after the window is closed',
+    engine.phase === PHASE.SHORT_BREAK && engine.status === STATUS.RUNNING,
+    `${Math.round(engine.remainingMs() / 1000)}s left`
+  );
+  check('the app offers the break window back', pomora.buildState().canReopenOverlay);
+
+  pomora.command('overlay:show');
+  await wait(250);
+  check('the break window can be reopened', pomora.overlayIsVisible());
+  pomora.command('overlay:hide', { silent: true });
+
+  pomora.store.updateSettings({ breakOverlay: false });
+  engine.startPhase(PHASE.LONG_BREAK);
+  await wait(300);
+  check('turning the break window off keeps it off', !pomora.overlayIsVisible());
+  pomora.store.updateSettings({ breakOverlay: true });
+  engine.stop();
+
+  // --- manual focus time --------------------------------------------------
+  const beforeFocus = store.today().focusMs;
+  const manual = pomora.command('session:add-manual', {
+    startedAt: Date.now() - 45 * MINUTE,
+    workedMs: 45 * MINUTE,
+    pomodoros: 2,
+    note: 'forgot to start the timer',
+  });
+  check('manual focus time is recorded', !!manual && manual.type === 'manual');
+  check(
+    'manual time lands in today\'s total',
+    store.today().focusMs - beforeFocus === 45 * MINUTE,
+    `+${Math.round((store.today().focusMs - beforeFocus) / MINUTE)} min`
+  );
+  check('manual pomodoros are credited', store.today().pomodoros >= 2);
+  check('manual entry shows in the session log', pomora.statsPayload().sessions.some((x) => x.id === manual.id));
+
+  pomora.command('session:delete', { id: manual.id });
+  check('deleting a manual entry unwinds it', store.today().focusMs === beforeFocus);
+
+  // Measure the delta: the data folder may already hold history.
+  const dayIndex = (list) => list.length - 4; // three days back, today last
+  const beforeDay = pomora.statsPayload().days[dayIndex(pomora.statsPayload().days)].focusMs;
+  const backDated = pomora.command('session:add-manual', {
+    startedAt: Date.now() - 3 * 24 * 3600 * 1000,
+    workedMs: 30 * MINUTE,
+    pomodoros: 1,
+  });
+  const days = pomora.statsPayload().days;
+  const target = days[dayIndex(days)];
+  check(
+    'back-dated time lands on the right day, not today',
+    target.focusMs - beforeDay === 30 * MINUTE && store.today().focusMs === beforeFocus,
+    `${target.day} +${Math.round((target.focusMs - beforeDay) / MINUTE)} min`
+  );
+  pomora.command('session:delete', { id: backDated.id });
+  check(
+    'deleting the back-dated entry restores that day',
+    pomora.statsPayload().days[dayIndex(days)].focusMs === beforeDay
+  );
+
+  // --- tasks, settings, data ---------------------------------------------
+  const task = pomora.command('task:add', { title: 'Grade NLP assignments', estimate: 3 });
+  check('task added', !!task && task.id);
+  pomora.command('task:select', { id: task.id });
+  check('task selected', engine.taskId === task.id);
+
+  pomora.command('settings:update', { workMs: 30 * MINUTE });
+  check('settings update reaches the engine', engine.settings.workMs === 30 * MINUTE);
+  check('settings persisted', store.settings.workMs === 30 * MINUTE);
+
+  engine.stop();
+  const stats = pomora.command('stats:get');
+  check('stats payload shape', Array.isArray(stats.days) && stats.days.length === 14);
+  check('csv export builds', store.exportCsv().split('\n')[0].startsWith('started_at'));
+
+  // --- mini window --------------------------------------------------------
+  pomora.toggleMini(true);
+  await wait(120);
+  check('mini timer opens', !!pomora.mini && pomora.mini.isVisible());
+  pomora.toggleMini(false);
+  check('mini timer hides', !pomora.mini.isVisible());
+
+  // --- notifications (must not throw even where they cannot display) ------
+  let threw = null;
+  try {
+    pomora.notifier.workAlert({ index: 1, total: 8, minutes: 25, taskTitle: 'Grade NLP assignments' });
+    pomora.notifier.shortBreakAlert({ minutes: 5, pomodoros: 1 });
+    pomora.notifier.longBreakAlert({ minutes: 15, pomodoros: 4 });
+    pomora.notifier.breakOver({ next: null, minutes: 25 });
+    pomora.notifier.resumedWork({ minutes: 25, taskTitle: null });
+    pomora.notifier.welcomeBack({ awayText: '12m', phaseLabel: 'Short break' });
+    pomora.notifier.idleDetected({ awayText: '12m' });
+  } catch (err) {
+    threw = err.message;
+  }
+  check('all alert types build without throwing', threw === null, threw || '');
+
+  const failed = results.filter((r) => !r.ok);
+  console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
+  app.exit(failed.length ? 1 : 0);
+}
+
+module.exports = { run };
