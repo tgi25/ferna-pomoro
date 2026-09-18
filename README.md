@@ -10,6 +10,8 @@
 [![Latest release](https://img.shields.io/github/v/release/tgi25/ferna-pomoro?label=download)](https://github.com/tgi25/ferna-pomoro/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+[![Buy me a coffee](https://img.shields.io/badge/buy%20me%20a%20coffee-support-yellow?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/fernasolutions)
+
 [**Download for Windows**](https://github.com/tgi25/ferna-pomoro/releases/latest) · [What it does](#what-it-does) · [Build from source](#running-from-source)
 
 </div>
@@ -294,3 +296,8 @@ MIT licensed. Built for TGI Fernando.
   Timer pane or the tray, and each of its two exits is its own setting.
 
 **1.0.0** — first release.
+
+## Support
+
+Ferna Pomoro is free and always will be. If it saves you some honest hours,
+you can [buy me a coffee](https://buymeacoffee.com/fernasolutions).
