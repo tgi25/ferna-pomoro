@@ -73,10 +73,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/OWNER/ferna-pomoro.git"
+    "url": "https://github.com/tgi25/ferna-pomoro.git"
   },
-  "homepage": "https://github.com/OWNER/ferna-pomoro",
+  "homepage": "https://github.com/tgi25/ferna-pomoro",
   "bugs": {
-    "url": "https://github.com/OWNER/ferna-pomoro/issues"
+    "url": "https://github.com/tgi25/ferna-pomoro/issues"
   }
 }

@@ -6,11 +6,11 @@
 
 **A Pomodoro timer for Windows that refuses to count time you weren't there.**
 
-[![Tests](https://github.com/OWNER/ferna-pomoro/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/ferna-pomoro/actions/workflows/ci.yml)
-[![Latest release](https://img.shields.io/github/v/release/OWNER/ferna-pomoro?label=download)](https://github.com/OWNER/ferna-pomoro/releases/latest)
+[![Tests](https://github.com/tgi25/ferna-pomoro/actions/workflows/ci.yml/badge.svg)](https://github.com/tgi25/ferna-pomoro/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/tgi25/ferna-pomoro?label=download)](https://github.com/tgi25/ferna-pomoro/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-[**Download for Windows**](https://github.com/OWNER/ferna-pomoro/releases/latest) · [What it does](#what-it-does) · [Build from source](#running-from-source)
+[**Download for Windows**](https://github.com/tgi25/ferna-pomoro/releases/latest) · [What it does](#what-it-does) · [Build from source](#running-from-source)
 
 </div>
 
@@ -27,6 +27,8 @@ answer you give, the numbers in your statistics are true.
 
 </div>
 
+[**▶ Watch the 70-second demo**](docs/demo.mp4?raw=1) — the whole idea in one video.
+
 ![Timer](docs/shots/01-timer.png)
 
 ---
@@ -34,7 +36,7 @@ answer you give, the numbers in your statistics are true.
 ## Installing
 
 Download **`Ferna-Pomoro-Setup-<version>.exe`** from the
-[latest release](https://github.com/OWNER/ferna-pomoro/releases/latest) and run
+[latest release](https://github.com/tgi25/ferna-pomoro/releases/latest) and run
 it. It installs per-user, so it needs no administrator rights, and it offers to
 put Ferna Pomoro in the Start menu and on the desktop.
 `Ferna-Pomoro-Portable-<version>.exe` runs from a folder or a USB stick without
