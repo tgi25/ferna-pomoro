@@ -12,9 +12,13 @@
 
 [![Buy me a coffee](https://img.shields.io/badge/buy%20me%20a%20coffee-support-yellow?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/fernasolutions)
 
-[**Download for Windows**](https://github.com/tgi25/ferna-pomoro/releases/latest) · [What it does](#what-it-does) · [Build from source](#running-from-source)
+[**Download for Windows**](https://github.com/tgi25/ferna-pomoro/releases/latest) · [Update an existing install](#updating-to-a-new-version) · [What it does](#what-it-does) · [Build from source](#running-from-source)
 
 </div>
+
+> **New in 1.2.0:** a full-screen *"You haven't started work yet"* reminder when a
+> break has ended and focus still hasn't started.
+> [See how it works](#you-havent-started-work-yet) · [update now](#updating-to-a-new-version)
 
 ---
 
@@ -47,7 +51,7 @@ installing anything. Windows 10 or 11, 64-bit.
 Every release also carries `SHA256SUMS.txt`. To check a download:
 
 ```powershell
-Get-FileHash .\Ferna-Pomoro-Setup-1.1.1.exe -Algorithm SHA256
+Get-FileHash .\Ferna-Pomoro-Setup-1.2.0.exe -Algorithm SHA256
 ```
 
 The installer is not code-signed — a certificate costs more than this project
@@ -62,6 +66,24 @@ can then be uninstalled from Apps & features.
 
 Your data lives in `%APPDATA%\Ferna Pomoro\pomora-data.json` and survives
 upgrades. Uninstalling leaves it in place; delete the folder to remove it.
+
+### Updating to a new version
+
+1. Download the new **`Ferna-Pomoro-Setup-<version>.exe`** from the
+   [latest release](https://github.com/tgi25/ferna-pomoro/releases/latest).
+2. **Quit Ferna Pomoro first.** Right-click its tray icon (near the clock) and
+   choose **Quit**. Closing the window only hides it to the tray, and the
+   installer can't replace a running app.
+3. Run the installer. On *"Windows protected your PC"*, choose
+   **More info → Run anyway**.
+4. It installs over the old version. Your statistics, tasks and settings are
+   kept, so you don't need to uninstall first.
+5. Open Ferna Pomoro and look at the bottom of **Settings**. It shows the version
+   you are running.
+
+Using the portable build? Download the new `Ferna-Pomoro-Portable-<version>.exe`
+and use it instead of the old one. Your data lives in `%APPDATA%`, not next to
+the `.exe`, so nothing is lost.
 
 ---
 
@@ -191,6 +213,38 @@ the break. Once closed, **Show break screen** appears on the Timer pane and in
 the tray menu to bring it back, and if the break ends while the window is closed
 you still get told, so work never resumes silently.
 
+### "You haven't started work yet"
+
+A break ends and the back-to-work alert goes off. You swipe it away and mean to
+start in a minute. Twenty minutes later nothing has started. The toast is easy to
+dismiss, so Ferna Pomoro follows it up with something that is not.
+
+If the next focus session still hasn't started a set time after the break ended
+(5 minutes by default), a full-screen window like the break window comes up on
+every monitor:
+
+![Not started yet](docs/shots/09-not-started.png)
+
+It counts up the time since the break ended and shows what is next. It has three
+buttons:
+
+| Button | Effect |
+| --- | --- |
+| **Start focus now** | Starts the next focus session and closes the window. |
+| **Remind me in N min** | Closes the window and brings it back after the same delay. Esc does the same. |
+| **Stop the timer** | Ends the cycle. Use it when you are done for the day. |
+
+It will not scold you for time you were not there. If you leave the computer
+after the break, the delay starts again from when you come back, and a laptop
+that has just woken from sleep gets the same grace. Starting focus any other way
+(the tray, a shortcut, the toast) cancels it. The Timer pane shows it too:
+*Break ended 7 min ago*.
+
+**Settings → After a break** turns it on or off, sets the delay (1–120 minutes)
+and has a **Preview the reminder** button. It only applies when focus waits for
+you after a break. If *Start the next focus session automatically* is on, there is
+nothing to wait for.
+
 ### Tasks, statistics, and the rest
 
 - **Tasks** with estimated pomodoros; the selected task collects the focus time
@@ -215,14 +269,15 @@ you still get told, so work never resumes silently.
 ```bash
 npm install
 npm start          # run the app
-npm test           # 39 unit tests: engine, idle watcher, store
+npm test           # 50 unit tests: engine, idle watcher, store, reminder
 npm run dist       # build the Windows installer (needs Wine on Linux)
 python3 tools/make-assets.py   # regenerate sounds and icons
 ```
 
 `npx electron . --selftest` drives the whole app inside Electron — windows, the
 canvas-drawn taskbar images, the full idle freeze/return path, the break-window
-dismissal, manual time entry and the IPC surface — 43 checks, ending in a
+dismissal, the not-started reminder, manual time entry and the IPC surface —
+58 checks, ending in a
 pass/fail summary. `--screenshots` writes `docs/shots/`.
 
 ### How it is laid out
@@ -233,6 +288,7 @@ src/
   main/
     engine.js        the timer state machine — pure, no Electron, fully tested
     idle-watcher.js  turns idle-second readings into away-episodes
+    nudge.js         decides when to say "you haven't started work yet"
     store.js         atomic JSON persistence, daily aggregates, CSV export
     taskbar.js       progress bar, overlay badge, thumbnail toolbar, title
     image-factory.js draws the badge/tray/glyph PNGs at runtime
@@ -240,7 +296,8 @@ src/
     windows.js       window construction
     main.js          wiring: events, IPC, tray, idle policy, power events
   preload/     the only bridge to the UI (contextIsolation, sandboxed)
-  renderer/    timer, tasks, stats, settings, mini, break curtain, idle prompt
+  renderer/    timer, tasks, stats, settings, mini, break curtain, idle prompt,
+               not-started reminder
 ```
 
 Two design decisions carry most of the reliability:
@@ -286,6 +343,12 @@ the taskbar progress bar is what Windows has always offered and few apps use.
 MIT licensed. Built for TGI Fernando.
 
 ## Changelog
+
+**1.2.0**
+- A full-screen "You haven't started work yet" window when a break has ended and
+  focus still hasn't started after a delay you choose (Settings → After a break).
+- "+5 min break" on the break-over alert now gives you five more minutes of break.
+  Before, it did nothing because the break had already ended.
 
 **1.1.0**
 - Renamed to Ferna Pomoro, with the new cat icon; data from Pomora 1.0 is

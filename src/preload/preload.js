@@ -15,6 +15,7 @@ const ALLOWED_EVENTS = new Set([
   'sound',
   'idle-prompt',
   'overlay',
+  'nudge',
   'alert',
   'toast',
   'navigate',

@@ -67,6 +67,8 @@ const DEFAULT_SETTINGS = {
   overlayDismissable: true, // "Back to work now" — ends the break early
   overlayCanHide: true, // "Close window" — leaves the curtain, break continues
   overlayReminder: true, // nudge when the break ends with the curtain closed
+  notStartedReminder: true, // full-screen reminder when focus has not started after a break
+  notStartedAfterMs: 5 * MINUTE, // …this long after the break ran out
   soundEnabled: true,
   volume: 0.7,
   tickingEnabled: false,

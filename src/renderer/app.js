@@ -37,6 +37,8 @@ function renderTimer(s) {
 
   let note = '';
   if (s.status === 'paused') note = s.awayFrozen ? 'Frozen — you were away' : 'Paused';
+  else if (s.status === 'awaiting' && s.notStartedSinceMs >= 60000)
+    note = `Break ended ${Math.floor(s.notStartedSinceMs / 60000)} min ago`;
   else if (s.status === 'awaiting') note = `Waiting for you · next: ${labelOf(s.nextPhase)}`;
   else if (s.idleRemovedMs > 60000) note = `${Math.round(s.idleRemovedMs / 60000)} min of idle removed`;
   $('#dial-note').textContent = note;
@@ -365,6 +367,7 @@ function toForm(s) {
     shortMin: Math.round(s.shortBreakMs / MIN),
     longMin: Math.round(s.longBreakMs / MIN),
     idleMin: Math.round(s.idleThresholdSec / 60),
+    notStartedAfterMin: Math.round((s.notStartedAfterMs || 5 * MIN) / MIN),
     volumePct: Math.round((s.volume || 0) * 100),
   };
 }
@@ -379,6 +382,8 @@ function fromField(key, value) {
       return { longBreakMs: Math.max(1, value) * MIN };
     case 'idleMin':
       return { idleThresholdSec: Math.max(1, value) * 60 };
+    case 'notStartedAfterMin':
+      return { notStartedAfterMs: Math.min(120, Math.max(1, value || 1)) * MIN };
     case 'volumePct':
       return { volume: Math.min(1, Math.max(0, value / 100)) };
     default:
@@ -388,6 +393,13 @@ function fromField(key, value) {
 
 function renderSettings(s) {
   settings = s;
+  const hint = $('#nudge-hint');
+  if (hint) {
+    hint.textContent = s.autoStartWork
+      ? 'Focus starts by itself after each break (Flow → Start the next focus session automatically), so this reminder has nothing to wait for. Turn that off to use it.'
+      : 'A full-screen window, like the break window, appears when a break has ended and the next focus session still hasn\'t started. It waits while you are away from the computer.';
+  }
+  $$('[data-setting="notStartedAfterMin"]').forEach((el) => (el.disabled = !s.notStartedReminder));
   const form = toForm(s);
   $$('[data-setting]').forEach((el) => {
     const key = el.dataset.setting;
@@ -409,6 +421,11 @@ $$('[data-setting]').forEach((el) => {
   };
   el.addEventListener('change', commit);
   if (el.type === 'range') el.addEventListener('input', commit);
+});
+
+$('#btn-nudge-preview').addEventListener('click', (e) => {
+  e.preventDefault();
+  window.pomora.send('nudge:show');
 });
 
 $('#btn-reset-settings').addEventListener('click', () => window.pomora.send('settings:reset'));
@@ -459,6 +476,6 @@ window.pomora.on('navigate', ({ tab }) => showTab(tab));
   renderTasks((await window.pomora.send('task:list')) || []);
   renderStats(await window.pomora.send('stats:get'));
   renderTimer(await window.pomora.send('state:get'));
-  $('#version').textContent = `Ferna Pomoro 1.1.1 · Electron ${window.pomora.version}`;
+  $('#version').textContent = `Ferna Pomoro 1.2.0 · Electron ${window.pomora.version}`;
   audio.remove();
 })();

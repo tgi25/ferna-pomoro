@@ -754,6 +754,10 @@ select:focus {
   min-width: 34px;
 }
 
+.row input:disabled {
+  opacity: 0.45;
+}
+
 .row input[type='number'] {
   width: 74px;
 }

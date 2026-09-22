@@ -51,7 +51,14 @@ jobs:
           $tag = if ($env:GITHUB_REF_NAME -like 'v*') { $env:GITHUB_REF_NAME } else { '${{ inputs.tag }}' }
           $assets = @(Get-ChildItem dist/*.exe, dist/SHA256SUMS.txt | ForEach-Object { $_.FullName })
           gh release view $tag 2>$null
+          $notes = "docs/release-notes/$tag.md"
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --title "Ferna Pomoro $tag" --notes "Installer and portable build are attached below. See CHANGELOG.md for what changed in this version."
+            if (Test-Path $notes) {
+              gh release create $tag --title "Ferna Pomoro $tag" --notes-file $notes
+            } else {
+              gh release create $tag --title "Ferna Pomoro $tag" --notes "Installer and portable build are attached below. See CHANGELOG.md for what changed in this version."
+            }
+          } elseif (Test-Path $notes) {
+            gh release edit $tag --notes-file $notes
           }
           gh release upload $tag $assets --clobber

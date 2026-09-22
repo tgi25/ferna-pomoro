@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    />
+    <title>Ferna Pomoro — time to start</title>
+    <style>
+      :root {
+        --accent: #e0483f;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+        color: #eef1f7;
+        background: radial-gradient(1200px 700px at 50% 30%, #2a171a 0%, #120c0e 72%);
+        user-select: none;
+      }
+      .wrap {
+        height: 100%;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        padding: 40px;
+      }
+      .kicker {
+        font-size: 13px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-bottom: 14px;
+      }
+      h1 {
+        margin: 0 0 22px;
+        font-size: 40px;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+      }
+      .clock {
+        font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
+        font-size: 96px;
+        font-weight: 600;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+        color: #ffd7d3;
+      }
+      .since {
+        font-size: 15px;
+        color: #b9a9ac;
+        margin: 10px 0 26px;
+      }
+      .next {
+        display: inline-block;
+        font-size: 17px;
+        color: #e6dfe0;
+        padding: 10px 18px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        margin-bottom: 10px;
+        max-width: 640px;
+      }
+      .today {
+        font-size: 13.5px;
+        color: #9d8f93;
+        margin: 6px 0 30px;
+      }
+      button {
+        font-family: inherit;
+        font-size: 14px;
+        padding: 11px 24px;
+        border-radius: 11px;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        background: rgba(255, 255, 255, 0.06);
+        color: #eef1f7;
+        cursor: pointer;
+        margin: 0 5px;
+      }
+      button:hover {
+        background: rgba(255, 255, 255, 0.13);
+      }
+      button.primary {
+        background: var(--accent);
+        border-color: transparent;
+        font-weight: 600;
+        padding: 12px 30px;
+      }
+      .footnote {
+        margin: 18px auto 0;
+        font-size: 12.5px;
+        color: #85787b;
+        max-width: 540px;
+      }
+      .secondary-only h1 {
+        font-size: 30px;
+      }
+      .secondary-only .clock {
+        font-size: 64px;
+      }
+      .hidden {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div>
+        <div class="kicker" id="kicker">Break is over</div>
+        <h1 id="headline">You haven't started work yet</h1>
+        <div class="clock" id="clock">05:00</div>
+        <p class="since" id="since">since your break ended</p>
+        <div class="next" id="next">Next: a 25-minute focus session</div>
+        <p class="today" id="today"></p>
+        <div id="actions">
+          <button id="snooze">Remind me in 5 min</button>
+          <button id="stop">Stop the timer</button>
+          <button class="primary" id="start">Start focus now</button>
+        </div>
+        <p class="footnote" id="footnote">
+          Esc also reminds you later. You can change or turn off this reminder in Settings → After a break.
+        </p>
+      </div>
+    </div>
+    <script src="nudge.js"></script>
+  </body>
+</html>

@@ -22,6 +22,7 @@ const { IdleWatcher } = require('./idle-watcher');
 const { Store } = require('./store');
 const { Notifier } = require('./notifier');
 const { ImageFactory } = require('./image-factory');
+const { NotStartedNudge } = require('./nudge');
 const { TaskbarIndicator, COLORS, PHASE_LABEL } = require('./taskbar');
 const windows = require('./windows');
 
@@ -51,6 +52,8 @@ class PomoraApp {
     this.win = null;
     this.mini = null;
     this.overlays = [];
+    this.nudgeWins = [];
+    this.nudge = new NotStartedNudge({ getSettings: () => this.store.settings });
     this.idleWin = null;
     this.tray = null;
     this.taskbar = null;
@@ -167,6 +170,7 @@ class PomoraApp {
     this.engine.on('state', () => this.broadcastAll());
 
     this.engine.on('phase-start', ({ phase, targetMs }) => {
+      this.clearNudge();
       const cameFromBreak = this.prevPhase === PHASE.SHORT_BREAK || this.prevPhase === PHASE.LONG_BREAK;
       this.prevPhase = phase;
       const minutes = Math.round(targetMs / MINUTE);
@@ -198,7 +202,7 @@ class PomoraApp {
       this.broadcastAll();
     });
 
-    this.engine.on('phase-complete', ({ phase, next, autoStart }) => {
+    this.engine.on('phase-complete', ({ phase, next, at, autoStart }) => {
       const minutes = Math.round(this.engine.durationFor(next) / MINUTE);
       const pomodoros = this.store.today().pomodoros;
       if (phase === PHASE.WORK) {
@@ -217,6 +221,9 @@ class PomoraApp {
           this.flashWindow();
         }
         this.hideOverlays();
+        // …and if focus still has not started a while later, say so again,
+        // this time in a way that cannot be swiped away.
+        if (next === PHASE.WORK) this.nudge.arm(at || Date.now());
       } else if (this.overlayHidden && this.store.settings.overlayReminder) {
         // The curtain was closed, so nothing on screen marked the end of the
         // break. Say so, since work is about to start under the user's hands.
@@ -237,6 +244,7 @@ class PomoraApp {
     });
 
     this.engine.on('stopped', () => {
+      this.clearNudge();
       this.overlayHidden = false;
       this.hideOverlays();
       this.prevPhase = PHASE.IDLE;
@@ -259,8 +267,12 @@ class PomoraApp {
       this.beginAway(gapStart);
       this.endAway(gapStart, now, { source: 'sleep' });
     }
+    // Whether or not idle detection is on, a machine that has just woken up
+    // should not greet its user with "you haven't started yet".
+    if (gap > TIME_GAP_MS) this.nudge.restartFrom(now);
 
     this.engine.tick(now);
+    this.checkNudge(now);
     this.updateIndicators();
     this.broadcastTick();
   }
@@ -333,6 +345,8 @@ class PomoraApp {
     const away = this.awayState;
     this.awayState = null;
     const idleMs = Math.max(0, returnedAt - awayStart);
+    // The not-started reminder counts from the moment they sat back down.
+    this.nudge.restartFrom(returnedAt);
     const s = this.engine.snapshot();
     const thresholdMs = this.store.settings.idleThresholdSec * 1000;
 
@@ -556,7 +570,9 @@ class PomoraApp {
   canReopenOverlay() {
     const s = this.engine.snapshot();
     const onBreak = s.phase === PHASE.SHORT_BREAK || s.phase === PHASE.LONG_BREAK;
-    return onBreak && s.status !== STATUS.STOPPED && !this.overlayIsVisible();
+    // Once the break has run out there is no break left to show.
+    const live = s.status === STATUS.RUNNING || s.status === STATUS.PAUSED;
+    return onBreak && live && !this.overlayIsVisible();
   }
 
   overlayIsVisible() {
@@ -596,6 +612,85 @@ class PomoraApp {
     return list[Math.floor(Math.random() * list.length)];
   }
 
+  // ------------------------------------------------ not started after break
+
+  /** Put the reminder up if a break ended a while ago and focus never began. */
+  checkNudge(now = Date.now()) {
+    const s = this.engine.snapshot(now);
+    const awaitingWork = s.status === STATUS.AWAITING && s.nextPhase === PHASE.WORK;
+    const away = !!(this.watcher.away && this.store.settings.idleDetection);
+    if (this.nudge.check(now, { awaitingWork, away })) this.showNudge();
+  }
+
+  showNudge({ preview = false } = {}) {
+    if (!this.nudgeWins.length || this.nudgeWins.some((w) => w.isDestroyed())) {
+      this.nudgeWins.forEach((w) => !w.isDestroyed() && w.destroy());
+      this.nudgeWins = windows.createNudgeWindows();
+    }
+    const payload = this.nudgePayload();
+    this.nudgeWins.forEach((w, i) => {
+      if (w.isDestroyed()) return;
+      // The primary screen takes focus so Esc and the buttons work at once.
+      if (i === 0) {
+        w.show();
+        w.focus();
+      } else {
+        w.showInactive();
+      }
+      w.setAlwaysOnTop(true, 'screen-saver');
+      const send = () => !w.isDestroyed() && w.webContents.send('pomora:nudge', payload);
+      if (w.webContents.isLoading()) w.webContents.once('did-finish-load', send);
+      else send();
+    });
+    this.play('back-to-work');
+    if (!preview) {
+      this.notifier.show({
+        title: "⏳ You haven't started work yet",
+        body: `Your break ended ${formatDuration(this.nudge.sinceBreakMs())} ago.`,
+        actions: [{ id: 'start-work', label: 'Start focus' }],
+      });
+    }
+    this.broadcastAll();
+  }
+
+  hideNudge() {
+    this.nudgeWins.forEach((w) => {
+      if (!w.isDestroyed() && w.isVisible()) w.hide();
+    });
+  }
+
+  nudgeIsVisible() {
+    return this.nudgeWins.some((w) => !w.isDestroyed() && w.isVisible());
+  }
+
+  /** Focus started, the timer stopped: the reminder has nothing left to say. */
+  clearNudge() {
+    this.nudge.disarm();
+    this.hideNudge();
+  }
+
+  snoozeNudge(ms) {
+    this.nudge.snooze(Date.now(), ms);
+    this.hideNudge();
+    this.broadcastAll();
+  }
+
+  nudgePayload() {
+    const today = this.store.today();
+    const endedAt = this.nudge.breakEndedAt || Date.now();
+    const s = this.engine.snapshot();
+    return {
+      breakEndedAt: endedAt,
+      endedAtText: new Date(endedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      breakLabel: s.phase === PHASE.LONG_BREAK ? 'long break' : 'break',
+      focusMinutes: Math.round(this.engine.durationFor(PHASE.WORK) / MINUTE),
+      taskTitle: this.currentTaskTitle(),
+      snoozeMinutes: Math.round(this.nudge.delayMs / MINUTE),
+      count: this.nudge.shownCount,
+      today: { focusText: formatDuration(today.focusMs), pomodoros: today.pomodoros },
+    };
+  }
+
   // ------------------------------------------------------------------ audio
 
   play(sound) {
@@ -616,7 +711,8 @@ class PomoraApp {
         s.status === STATUS.AWAITING
           ? formatClock(s.overtimeMs)
           : formatClock(Math.max(0, s.remainingMs)),
-      overtime: s.status === STATUS.AWAITING,
+      // Only a finished focus session counts up; a finished break just waits.
+      overtime: s.status === STATUS.AWAITING && s.phase === PHASE.WORK,
       today: {
         ...today,
         focusText: formatDuration(today.focusMs),
@@ -629,6 +725,9 @@ class PomoraApp {
       overlayVisible: this.overlayIsVisible(),
       canReopenOverlay: this.canReopenOverlay(),
       breakOverlayEnabled: this.store.settings.breakOverlay,
+      nudgeVisible: this.nudgeIsVisible(),
+      notStartedSinceMs:
+        s.status === STATUS.AWAITING && s.nextPhase === PHASE.WORK ? this.nudge.sinceBreakMs() : 0,
     };
   }
 
@@ -756,7 +855,15 @@ class PomoraApp {
         this.snoozeAlert(5 * MINUTE);
         break;
       case 'extend-break-5':
-        this.engine.extend(5 * MINUTE);
+        // From the break-over toast the break has already ended, so there is
+        // nothing to extend: give them a fresh five-minute break instead.
+        if (this.engine.status === STATUS.AWAITING && this.engine.nextPhase === PHASE.WORK) {
+          const phase =
+            this.engine.phase === PHASE.LONG_BREAK ? PHASE.LONG_BREAK : PHASE.SHORT_BREAK;
+          this.engine.startPhase(phase, Date.now(), { targetMs: 5 * MINUTE });
+        } else {
+          this.engine.extend(5 * MINUTE);
+        }
         break;
       case 'idle-discard':
         this.resolveIdle('discard');
@@ -928,6 +1035,23 @@ class PomoraApp {
         this.broadcastAll();
         return true;
 
+      // not started after a break -----------------------------------------
+      case 'nudge:start':
+        this.handleAction('start-work');
+        return true;
+      case 'nudge:snooze':
+        this.snoozeNudge(Number(payload.ms) || this.nudge.delayMs);
+        return true;
+      case 'nudge:stop':
+        this.engine.stop();
+        this.clearNudge();
+        this.broadcastAll();
+        return true;
+      case 'nudge:show':
+        // Preview from Settings. Changes no state: the buttons still work.
+        this.showNudge({ preview: true });
+        return true;
+
       case 'session:add-manual': {
         const record = store.addManualSession(payload);
         this.checkDailyGoal();
@@ -949,6 +1073,11 @@ class PomoraApp {
   applySettings(patch) {
     const settings = this.store.updateSettings(patch);
     this.engine.updateSettings(settings);
+    if (!settings.notStartedReminder && this.nudgeIsVisible()) {
+      this.hideNudge();
+      this.nudge.showing = false;
+    }
+    this.nudge.refresh();
     this.watcher.setThreshold(settings.idleThresholdSec);
     this.watcher.setEnabled(settings.idleDetection);
     if (this.taskbar) this.taskbar.setSettings(settings);

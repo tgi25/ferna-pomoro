@@ -4,6 +4,27 @@ All notable changes to Ferna Pomoro are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] — 2026-09-21
+
+### Added
+- **"You haven't started work yet" reminder.** When a break ends and the next
+  focus session still hasn't started after a set time, a full-screen window
+  like the break window appears on every monitor. It counts up the time since the
+  break ended, with **Start focus now**, **Remind me in N min** (or Esc) and
+  **Stop the timer**. It waits while you are away from the computer or the
+  machine is asleep, and counts the delay again from your return.
+- Settings → **After a break**: turn the reminder on or off, choose the delay
+  (1–120 minutes, default 5), and preview it.
+- The Timer pane shows how long ago the break ended while focus waits.
+
+### Fixed
+- "+5 min break" on the break-over alert did nothing, because the break had
+  already ended. It now starts a five-minute break.
+- The Timer pane no longer offers "Show break screen" after the break has ended.
+- A finished break no longer shows as `+00:00` overtime. Only focus sessions
+  count overtime.
+- The startup setting now says "Ferna Pomoro" instead of the old name.
+
 ## [1.1.1] — 2026-09-18
 
 ### Fixed

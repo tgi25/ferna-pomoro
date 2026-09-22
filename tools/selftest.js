@@ -113,6 +113,85 @@ async function run(pomora) {
   pomora.command('timer:accept');
   check('accepting starts the next work session', engine.phase === PHASE.WORK);
 
+  // --- "you haven't started work yet" after a break -------------------------
+  const endBreak = async () => {
+    pomora.command('timer:stop');
+    engine.startPhase(PHASE.SHORT_BREAK);
+    engine.targetMs = 150;
+    await wait(250);
+    pomora.onTick();
+  };
+  const nudgeDueNow = async () => {
+    pomora.nudge.dueAt = Date.now() - 1;
+    pomora.onTick();
+    await wait(400);
+  };
+  pomora.applySettings({ autoStartWork: false, notStartedReminder: true, notStartedAfterMs: 2 * MINUTE });
+  await endBreak();
+  check(
+    'a finished break arms the not-started reminder',
+    pomora.nudge.armed && engine.status === STATUS.AWAITING
+  );
+  check('the reminder waits for its delay', !pomora.nudgeIsVisible());
+  await nudgeDueNow();
+  check('the not-started window appears after the delay', pomora.nudgeIsVisible(), `${pomora.nudgeWins.length} display(s)`);
+  check('the main window reports the wait', pomora.buildState().notStartedSinceMs > 0);
+
+  pomora.command('nudge:snooze');
+  await wait(150);
+  check('"remind me" takes the window down', !pomora.nudgeIsVisible() && pomora.nudge.armed);
+  check(
+    'and schedules it for the chosen delay',
+    pomora.nudge.dueAt > Date.now() + 1.9 * MINUTE,
+    `${Math.round((pomora.nudge.dueAt - Date.now()) / 1000)}s`
+  );
+  await nudgeDueNow();
+  check('the window comes back after the snooze', pomora.nudgeIsVisible() && pomora.nudge.shownCount === 2);
+
+  pomora.command('nudge:start');
+  await wait(200);
+  check(
+    'starting focus from it closes it and starts work',
+    !pomora.nudgeIsVisible() && engine.phase === PHASE.WORK && engine.status === STATUS.RUNNING && !pomora.nudge.armed
+  );
+
+  await endBreak();
+  pomora.watcher.away = true;
+  await nudgeDueNow();
+  check('it never appears while the user is away', !pomora.nudgeIsVisible());
+  pomora.awayState = { awayStart: Date.now() - 10 * MINUTE, frozen: false, phase: PHASE.SHORT_BREAK };
+  pomora.watcher.away = false;
+  pomora.endAway(Date.now() - 10 * MINUTE, Date.now(), { source: 'input' });
+  check(
+    'on return the delay starts again',
+    pomora.nudge.dueAt >= Date.now() + 1.9 * MINUTE && !pomora.nudgeIsVisible()
+  );
+
+  pomora.applySettings({ notStartedReminder: false });
+  await nudgeDueNow();
+  check('turning the setting off keeps it away', !pomora.nudgeIsVisible());
+  pomora.command('nudge:stop');
+  check('stopping the timer clears the reminder', !pomora.nudge.armed && engine.status === STATUS.STOPPED);
+
+  pomora.command('nudge:show');
+  await wait(300);
+  check('the Settings preview opens the window', pomora.nudgeIsVisible());
+  pomora.command('nudge:snooze');
+  await wait(150);
+  check('and closes it without touching the timer', !pomora.nudgeIsVisible() && engine.status === STATUS.STOPPED);
+  pomora.applySettings({ notStartedReminder: true, notStartedAfterMs: 5 * MINUTE });
+
+  const extendBefore = engine.status;
+  await endBreak();
+  pomora.handleAction('extend-break-5');
+  check(
+    '"+5 min break" on the break-over toast starts a 5-minute break',
+    engine.phase === PHASE.SHORT_BREAK && engine.status === STATUS.RUNNING && engine.targetMs === 5 * MINUTE,
+    `was ${extendBefore}`
+  );
+  engine.stop();
+  pomora.hideOverlays();
+
   // --- the break window can be closed without ending the break ------------
   pomora.command('timer:stop');
   pomora.store.updateSettings({ breakOverlay: true, overlayCanHide: true });

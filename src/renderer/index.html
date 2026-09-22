@@ -196,6 +196,14 @@
           </fieldset>
 
           <fieldset class="card">
+            <legend>After a break</legend>
+            <label class="row"><span>Remind me if I haven't started work</span><input type="checkbox" data-setting="notStartedReminder" /></label>
+            <label class="row"><span>Remind me after</span><input type="number" min="1" max="120" data-setting="notStartedAfterMin" /><em>min without starting</em></label>
+            <p class="hint" id="nudge-hint">A full-screen window, like the break window, appears when a break has ended and the next focus session still hasn't started. It waits while you are away from the computer.</p>
+            <div class="row row--buttons"><button class="btn btn--quiet" id="btn-nudge-preview">Preview the reminder</button></div>
+          </fieldset>
+
+          <fieldset class="card">
             <legend>Idle detection</legend>
             <label class="row"><span>Notice when I leave the computer</span><input type="checkbox" data-setting="idleDetection" /></label>
             <label class="row"><span>Consider me away after</span><input type="number" min="1" max="60" data-setting="idleMin" /><em>min of no input</em></label>
@@ -248,7 +256,7 @@
             <label class="row"><span>Minimise to tray</span><input type="checkbox" data-setting="minimizeToTray" /></label>
             <label class="row"><span>Close to tray</span><input type="checkbox" data-setting="closeToTray" /></label>
             <label class="row"><span>Mini timer stays on top</span><input type="checkbox" data-setting="alwaysOnTopMini" /></label>
-            <label class="row"><span>Start Pomora when Windows starts</span><input type="checkbox" data-setting="launchOnStartup" /></label>
+            <label class="row"><span>Start Ferna Pomoro when Windows starts</span><input type="checkbox" data-setting="launchOnStartup" /></label>
           </fieldset>
 
           <fieldset class="card">

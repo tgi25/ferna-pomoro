@@ -153,6 +153,39 @@ async function run(pomora) {
   pomora.sendIdlePrompt();
   await wait(350);
   await shoot(pomora.idleWin, '07-idle');
+  pomora.resolveIdle('pause');
+
+  // "You haven't started work yet", seven and a half minutes after a break
+  pomora.applySettings({ autoStartWork: false });
+  engine.stop();
+  engine.startPhase(PHASE.SHORT_BREAK);
+  engine.targetMs = 100;
+  await wait(200);
+  engine.tick();
+  pomora.nudge.arm(Date.now() - 7.5 * MINUTE);
+  pomora.nudge.dueAt = Date.now() - 1;
+  pomora.checkNudge();
+  await wait(900);
+  pomora.showNudge({ preview: true });
+  await wait(400);
+  await shoot(pomora.nudgeWins[0], '09-not-started');
+  pomora.hideNudge();
+
+  // The timer pane while it waits
+  pomora.emitAll('navigate', { tab: 'timer' });
+  pomora.broadcastAll();
+  await wait(400);
+  await shoot(pomora.win, '10-not-started-timer');
+
+  // Its settings card
+  pomora.emitAll('navigate', { tab: 'settings' });
+  pomora.broadcastAll();
+  await wait(300);
+  await pomora.win.webContents.executeJavaScript(
+    "Array.from(document.querySelectorAll('legend')).find((l) => l.textContent === 'After a break').parentElement.scrollIntoView({ block: 'center' })"
+  );
+  await wait(300);
+  await shoot(pomora.win, '11-not-started-settings');
 
   console.log('screenshots done');
   app.exit(0);

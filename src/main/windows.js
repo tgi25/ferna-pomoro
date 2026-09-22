@@ -102,6 +102,39 @@ function createOverlayWindows() {
   });
 }
 
+/**
+ * "You haven't started work yet" — full-screen like the break curtain, one per
+ * display, with the controls on the primary one.
+ */
+function createNudgeWindows() {
+  return screen.getAllDisplays().map((display, index) => {
+    const win = new BrowserWindow({
+      x: display.bounds.x,
+      y: display.bounds.y,
+      width: display.bounds.width,
+      height: display.bounds.height,
+      show: false,
+      frame: false,
+      resizable: false,
+      movable: false,
+      minimizable: false,
+      maximizable: false,
+      fullscreenable: true,
+      skipTaskbar: true,
+      alwaysOnTop: true,
+      backgroundColor: '#140d0f',
+      title: 'Ferna Pomoro — time to start',
+      webPreferences: baseWebPrefs,
+    });
+    win.setAlwaysOnTop(true, 'screen-saver');
+    win.loadFile(path.join(RENDERER, 'nudge.html'), {
+      query: { primary: index === 0 ? '1' : '0' },
+    });
+    hardenNavigation(win);
+    return win;
+  });
+}
+
 /** "You were away" question, shown the moment the user touches the machine. */
 function createIdleWindow() {
   const display = screen.getPrimaryDisplay().workArea;
@@ -131,6 +164,7 @@ module.exports = {
   createMainWindow,
   createMiniWindow,
   createOverlayWindows,
+  createNudgeWindows,
   createIdleWindow,
   ICON,
 };

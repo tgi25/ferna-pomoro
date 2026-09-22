@@ -141,10 +141,10 @@ class PomodoroEngine extends EventEmitter {
   // ------------------------------------------------------------- transitions
 
   /** Begin a phase from scratch. */
-  startPhase(phase, now = this.now(), { silent = false } = {}) {
+  startPhase(phase, now = this.now(), { silent = false, targetMs = null } = {}) {
     this.phase = phase;
     this.status = STATUS.RUNNING;
-    this.targetMs = this.durationFor(phase);
+    this.targetMs = targetMs > 0 ? targetMs : this.durationFor(phase);
     this.accumulatedMs = 0;
     this.startedAt = now;
     this.phaseStartedAt = now;
