@@ -19,9 +19,20 @@ const PHASE_LABEL = {
 };
 
 /**
+ * What the live icons say: minutes left (rounded up, so "1" in the final
+ * minute and never "0" while time remains), or a tick once the phase is done.
+ */
+function iconLabel(state) {
+  if (state.status === STATUS.AWAITING) return '✓';
+  return String(Math.max(0, Math.ceil(state.remainingMs / 60000)));
+}
+
+/**
  * TaskbarIndicator — everything the Windows taskbar shows about the session:
  *
  *  - the taskbar button fills up as the current phase progresses;
+ *  - the button's own icon becomes a cat face with the minutes left on it —
+ *    at 24-32 px it is the largest place Windows lets an app put a number;
  *  - an overlay badge in the corner of the button carries today's worked time
  *    (or the pomodoro count / minutes left, per settings);
  *  - the window title counts down, so the time is readable from the taskbar's
@@ -33,7 +44,9 @@ const PHASE_LABEL = {
  * nothing on a per-second tick.
  */
 class TaskbarIndicator {
-  constructor({ window, imageFactory, settings, getToday, onCommand }) {
+  constructor({ window, imageFactory, settings, getToday, onCommand, appIcon = null }) {
+    this.appIcon = appIcon; // the normal icon, put back when nothing is running
+    this._lastIconKey = 'app';
     this.win = window;
     this.images = imageFactory;
     this.settings = settings;
@@ -50,6 +63,7 @@ class TaskbarIndicator {
     this.settings = settings;
     this._lastBadgeKey = null; // force a redraw under the new mode
     this._lastThumbKey = null;
+    this._lastIconKey = null;
   }
 
   static colorFor(state) {
@@ -61,6 +75,7 @@ class TaskbarIndicator {
     if (!this.win || this.win.isDestroyed()) return;
     this._updateTitle(state);
     this._updateProgress(state);
+    await this._updateIcon(state);
     await this._updateBadge(state);
     await this._updateThumbar(state);
     this._updateTooltip(state);
@@ -109,12 +124,40 @@ class TaskbarIndicator {
     this._lastMode = mode;
   }
 
+  // ------------------------------------------------------ live button icon
+
+  liveIconActive(state) {
+    return !!this.settings.taskbarLiveIcon && state.phase !== PHASE.IDLE;
+  }
+
+  async _updateIcon(state) {
+    if (!this.liveIconActive(state)) {
+      if (this._lastIconKey !== 'app') {
+        if (this.appIcon && !this.appIcon.isEmpty()) this.win.setIcon(this.appIcon);
+        this._lastIconKey = 'app';
+      }
+      return;
+    }
+    const label = iconLabel(state);
+    const color = TaskbarIndicator.colorFor(state);
+    const progress = state.status === STATUS.AWAITING ? 0 : Math.round(state.progress * 10) / 10;
+    const shape = this.settings.iconShape === 'round' ? 'round' : 'cat';
+    const key = `${shape}|${label}|${color}|${progress}`;
+    if (key === this._lastIconKey) return;
+    this._lastIconKey = key;
+    const spec = { label, color, progress, dimmed: false };
+    const img = shape === 'cat' ? await this.images.catIcon(spec) : await this.images.trayIcon(spec);
+    if (!this.win.isDestroyed() && !img.isEmpty()) this.win.setIcon(img);
+  }
+
   // ---------------------------------------------------------- overlay badge
 
   _badgeSpec(state) {
     const today = this.getToday();
     const mode = this.settings.overlayBadge;
     if (mode === 'off') return null;
+    // The button icon already carries the time; a badge would sit on top of it.
+    if (this.liveIconActive(state)) return null;
 
     if (state.status === STATUS.PAUSED) {
       return { label: '॥', color: COLORS.paused, description: 'Paused' };
@@ -229,7 +272,8 @@ class TaskbarIndicator {
     if (!this.win || this.win.isDestroyed()) return;
     this.win.setProgressBar(-1);
     if (this.isWindows) this.win.setOverlayIcon(null, '');
+    if (this.appIcon && !this.appIcon.isEmpty()) this.win.setIcon(this.appIcon);
   }
 }
 
-module.exports = { TaskbarIndicator, COLORS, PHASE_LABEL };
+module.exports = { TaskbarIndicator, COLORS, PHASE_LABEL, iconLabel };

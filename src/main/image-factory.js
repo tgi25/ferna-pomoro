@@ -133,6 +133,68 @@ class ImageFactory {
     );
   }
 
+  /**
+   * Live icon in the shape of a cat's face: two ears on a round head, filled
+   * with the phase colour, and the minutes left written as large as the head
+   * allows. Used for the tray icon and for the taskbar button itself.
+   *
+   * Windows shrinks a tray icon to 16x16 (more on high-DPI screens) and a
+   * taskbar button icon to 24-32, so everything that is not the number is
+   * kept to a minimum: no ring, no whiskers, one bold outline. Progress is
+   * shown by the face darkening from the top as the phase runs down.
+   */
+  catIcon({ label, color, progress = 0, dimmed = false }) {
+    const size = 64;
+    const text = String(label ?? '');
+    const key = `cat:${text}:${color}:${progress.toFixed(2)}:${dimmed}`;
+    // As large as the face allows: one or two characters nearly fill it.
+    const font = text.length >= 3 ? 30 : text.length === 2 ? 41 : 46;
+    return this._draw(
+      key,
+      size,
+      `
+      const head = new Path2D();
+      head.moveTo(3, 33);
+      head.lineTo(4, 1);            // left ear tip
+      head.lineTo(22, 16);          // left ear, inner side
+      head.quadraticCurveTo(32, 13, 42, 16);   // top of the head
+      head.lineTo(60, 1);           // right ear tip
+      head.lineTo(61, 33);
+      head.bezierCurveTo(62, 52, 49, 62, 32, 62);  // right cheek to chin
+      head.bezierCurveTo(15, 62, 2, 52, 3, 33);    // chin to left cheek
+      head.closePath();
+
+      ctx.globalAlpha = ${dimmed ? 0.6 : 1};
+      ctx.fillStyle = '${color}';
+      ctx.fill(head);
+      ${
+        progress > 0
+          ? `ctx.save(); ctx.clip(head);
+             ctx.fillStyle = 'rgba(0,0,0,0.22)';
+             ctx.fillRect(0, 0, ${size}, ${(size * progress).toFixed(1)});
+             ctx.restore();`
+          : ''
+      }
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+      ctx.lineWidth = 2.5;
+      ctx.stroke(head);
+      ctx.globalAlpha = 1;
+      ${
+        text
+          ? `ctx.font = '800 ${font}px "Segoe UI Variable Display", "Segoe UI", "Arial Narrow", sans-serif';
+             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+             // A dark rim under white digits keeps them legible on any colour.
+             ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+             ctx.strokeText(${JSON.stringify(text)}, 32, 41);
+             ctx.fillStyle = '#ffffff';
+             ctx.fillText(${JSON.stringify(text)}, 32, 41);`
+          : ''
+      }
+      `
+    );
+  }
+
   /** Glyphs for the taskbar thumbnail toolbar (play / pause / skip / stop). */
   glyph(name) {
     const size = 32;

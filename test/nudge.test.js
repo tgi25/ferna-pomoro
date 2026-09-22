@@ -93,3 +93,23 @@ test('a missing or broken delay falls back to five minutes', () => {
   assert.equal(n.check(5 * MIN - 1, WAITING), false);
   assert.equal(n.check(5 * MIN, WAITING), true);
 });
+
+test('the switch-on reminder reads its own settings', () => {
+  const s = {
+    notStartedReminder: false,
+    notStartedAfterMs: 50 * MIN,
+    startupReminder: true,
+    startupReminderAfterMs: 3 * MIN,
+  };
+  const n = new NotStartedNudge({
+    getSettings: () => s,
+    enabledKey: 'startupReminder',
+    delayKey: 'startupReminderAfterMs',
+  });
+  n.arm(0);
+  assert.equal(n.check(3 * MIN - 1, WAITING), false);
+  assert.equal(n.check(3 * MIN, WAITING), true);
+  s.startupReminder = false;
+  n.arm(0);
+  assert.equal(n.check(10 * MIN, WAITING), false);
+});

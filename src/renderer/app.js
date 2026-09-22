@@ -368,6 +368,7 @@ function toForm(s) {
     longMin: Math.round(s.longBreakMs / MIN),
     idleMin: Math.round(s.idleThresholdSec / 60),
     notStartedAfterMin: Math.round((s.notStartedAfterMs || 5 * MIN) / MIN),
+    startupReminderAfterMin: Math.round((s.startupReminderAfterMs || 5 * MIN) / MIN),
     volumePct: Math.round((s.volume || 0) * 100),
   };
 }
@@ -384,6 +385,8 @@ function fromField(key, value) {
       return { idleThresholdSec: Math.max(1, value) * 60 };
     case 'notStartedAfterMin':
       return { notStartedAfterMs: Math.min(120, Math.max(1, value || 1)) * MIN };
+    case 'startupReminderAfterMin':
+      return { startupReminderAfterMs: Math.min(120, Math.max(1, value || 1)) * MIN };
     case 'volumePct':
       return { volume: Math.min(1, Math.max(0, value / 100)) };
     default:
@@ -393,13 +396,9 @@ function fromField(key, value) {
 
 function renderSettings(s) {
   settings = s;
-  const hint = $('#nudge-hint');
-  if (hint) {
-    hint.textContent = s.autoStartWork
-      ? 'Focus starts by itself after each break (Flow → Start the next focus session automatically), so this reminder has nothing to wait for. Turn that off to use it.'
-      : 'A full-screen window, like the break window, appears when a break has ended and the next focus session still hasn\'t started. It waits while you are away from the computer.';
-  }
+  renderReminderHint(s);
   $$('[data-setting="notStartedAfterMin"]').forEach((el) => (el.disabled = !s.notStartedReminder));
+  $$('[data-setting="startupReminderAfterMin"]').forEach((el) => (el.disabled = !s.startupReminder));
   const form = toForm(s);
   $$('[data-setting]').forEach((el) => {
     const key = el.dataset.setting;
@@ -423,10 +422,53 @@ $$('[data-setting]').forEach((el) => {
   if (el.type === 'range') el.addEventListener('input', commit);
 });
 
-$('#btn-nudge-preview').addEventListener('click', (e) => {
-  e.preventDefault();
-  window.pomora.send('nudge:show');
-});
+/** Plain-language notes under the reminder switches, for the cases that need them. */
+function renderReminderHint(s) {
+  const hint = $('#reminder-hint');
+  if (!hint) return;
+  const notes = [];
+  if (s.startupReminder && !s.launchOnStartup) {
+    notes.push(
+      'The switch-on reminder needs Ferna Pomoro running: turn on “Start Ferna Pomoro when Windows starts” under Taskbar & tray.'
+    );
+  }
+  if (s.notStartedReminder && s.autoStartWork) {
+    notes.push(
+      'Focus starts by itself after each break (Flow → Start the next focus session automatically), so the after-break reminder never has anything to wait for.'
+    );
+  }
+  if (!notes.length) {
+    notes.push(
+      'Each is a full-screen window like the break window. The two reminders wait while you are away from the computer.'
+    );
+  }
+  hint.textContent = notes.join(' ');
+  if (s.startupReminder && !s.launchOnStartup) {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn--sm';
+    btn.style.marginLeft = '8px';
+    btn.textContent = 'Turn it on';
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.pomora.send('settings:update', { launchOnStartup: true });
+    });
+    hint.appendChild(btn);
+  }
+}
+
+const PREVIEWS = {
+  'complete-work': ['complete:show', { phase: 'work' }],
+  'complete-break': ['complete:show', { phase: 'break' }],
+  startup: ['nudge:show', { mode: 'startup' }],
+  'after-break': ['nudge:show', { mode: 'afterBreak' }],
+};
+$$('[data-preview]').forEach((b) =>
+  b.addEventListener('click', (e) => {
+    e.preventDefault();
+    const [type, payload] = PREVIEWS[b.dataset.preview];
+    window.pomora.send(type, payload);
+  })
+);
 
 $('#btn-reset-settings').addEventListener('click', () => window.pomora.send('settings:reset'));
 $$('[data-sound]').forEach((b) =>
@@ -476,6 +518,6 @@ window.pomora.on('navigate', ({ tab }) => showTab(tab));
   renderTasks((await window.pomora.send('task:list')) || []);
   renderStats(await window.pomora.send('stats:get'));
   renderTimer(await window.pomora.send('state:get'));
-  $('#version').textContent = `Ferna Pomoro 1.2.0 · Electron ${window.pomora.version}`;
+  $('#version').textContent = `Ferna Pomoro 1.4.0 · Electron ${window.pomora.version}`;
   audio.remove();
 })();

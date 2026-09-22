@@ -300,3 +300,24 @@ test('counting the idle as work takes it back out of the tally', () => {
   assert.equal(engine.idleRemovedMs, 0);
   assert.equal(engine.elapsedMs(), 28 * MINUTE);
 });
+
+test('a waiting engine can start a different phase than the one scheduled', () => {
+  const { engine, clock, logged } = makeEngine({ autoStartBreaks: false, allowOvertime: true });
+  engine.startPhase(PHASE.WORK);
+  clock.advance(25 * MINUTE);
+  engine.tick();
+  assert.equal(engine.nextPhase, PHASE.SHORT_BREAK);
+  clock.advance(2 * MINUTE);
+  engine.acceptNext(clock.now(), { phase: PHASE.WORK });
+  assert.equal(engine.phase, PHASE.WORK);
+  assert.equal(engine.status, STATUS.RUNNING);
+  assert.equal(engine.targetMs, 25 * MINUTE);
+  const overtime = logged.find((e) => e.type === 'overtime');
+  assert.equal(overtime.workedMs, 2 * MINUTE, 'overtime before the choice is still logged');
+});
+
+test('a phase can be started with a one-off length', () => {
+  const { engine } = makeEngine();
+  engine.startPhase(PHASE.SHORT_BREAK, undefined, { targetMs: 2 * MINUTE });
+  assert.equal(engine.targetMs, 2 * MINUTE);
+});

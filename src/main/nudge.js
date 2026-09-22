@@ -15,9 +15,21 @@
  * Pure: no Electron, settings and clock are passed in, so it is unit-tested.
  */
 class NotStartedNudge {
-  constructor({ getSettings, now = Date.now } = {}) {
+  /**
+   * The same logic serves two reminders, told apart by which settings they read:
+   * after a break (`notStartedReminder` / `notStartedAfterMs`) and after the
+   * computer is switched on (`startupReminder` / `startupReminderAfterMs`).
+   */
+  constructor({
+    getSettings,
+    now = Date.now,
+    enabledKey = 'notStartedReminder',
+    delayKey = 'notStartedAfterMs',
+  } = {}) {
     this.getSettings = getSettings || (() => ({}));
     this.now = now;
+    this.enabledKey = enabledKey;
+    this.delayKey = delayKey;
     this.reset();
   }
 
@@ -31,11 +43,11 @@ class NotStartedNudge {
   }
 
   get enabled() {
-    return !!this.getSettings().notStartedReminder;
+    return !!this.getSettings()[this.enabledKey];
   }
 
   get delayMs() {
-    const ms = Number(this.getSettings().notStartedAfterMs);
+    const ms = Number(this.getSettings()[this.delayKey]);
     return Number.isFinite(ms) && ms > 0 ? ms : 5 * 60 * 1000;
   }
 
@@ -78,7 +90,8 @@ class NotStartedNudge {
    * the window should be shown.
    *
    * @param {object} ctx
-   * @param {boolean} ctx.awaitingWork  the engine is waiting to start focus
+   * @param {boolean} ctx.awaitingWork  still nothing started (for the switch-on
+   *                                    reminder: the timer is stopped)
    * @param {boolean} ctx.away          the user is not at the machine
    */
   check(now = this.now(), { awaitingWork, away } = {}) {
@@ -103,7 +116,7 @@ class NotStartedNudge {
     this.dueAt = now + ms;
   }
 
-  /** How long ago the break ended, for the window's counter. */
+  /** How long ago the break ended (or the machine came on), for the counter. */
   sinceBreakMs(now = this.now()) {
     return this.armed ? Math.max(0, now - this.breakEndedAt) : 0;
   }

@@ -10,7 +10,7 @@ if (!isPrimary) {
   el('footnote').classList.add('hidden');
 }
 
-let breakEndedAt = null;
+let sinceAt = null;
 let timer = null;
 
 function clock(ms) {
@@ -24,18 +24,20 @@ function clock(ms) {
 }
 
 function render() {
-  if (breakEndedAt !== null) el('clock').textContent = clock(Date.now() - breakEndedAt);
+  if (sinceAt !== null) el('clock').textContent = clock(Date.now() - sinceAt);
 }
 
+// Two reminders share this window: after a break, and after switching on.
 window.pomora.on('nudge', (info) => {
-  breakEndedAt = info.breakEndedAt;
-  el('since').textContent = `since your ${info.breakLabel} ended at ${info.endedAtText}`;
-  el('next').textContent = info.taskTitle
-    ? `Next: ${info.focusMinutes} minutes on “${info.taskTitle}”`
-    : `Next: a ${info.focusMinutes}-minute focus session`;
-  el('today').textContent = `${info.today.focusText} focused today · ${info.today.pomodoros} pomodoros`;
+  sinceAt = info.sinceAt;
+  document.body.dataset.mode = info.mode;
+  el('kicker').textContent = info.count > 1 ? `${info.kicker} · reminder ${info.count}` : info.kicker;
+  el('headline').textContent = info.headline;
+  el('since').textContent = info.sinceText;
+  el('next').textContent = info.nextText;
+  el('today').textContent = info.todayText;
   el('snooze').textContent = `Remind me in ${info.snoozeMinutes} min`;
-  el('kicker').textContent = info.count > 1 ? `Break is over · reminder ${info.count}` : 'Break is over';
+  el('stop').textContent = info.stopLabel;
   render();
   if (!timer) timer = setInterval(render, 500);
 });
@@ -45,6 +47,5 @@ el('snooze').addEventListener('click', () => window.pomora.send('nudge:snooze'))
 el('stop').addEventListener('click', () => window.pomora.send('nudge:stop'));
 
 window.addEventListener('keydown', (e) => {
-  if (!isPrimary) return;
-  if (e.key === 'Escape') window.pomora.send('nudge:snooze');
+  if (isPrimary && e.key === 'Escape') window.pomora.send('nudge:snooze');
 });

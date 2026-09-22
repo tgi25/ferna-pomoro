@@ -1,7 +1,7 @@
 {
   "name": "ferna-pomoro",
   "productName": "Ferna Pomoro",
-  "version": "1.2.0",
+  "version": "1.4.0",
   "description": "A focus timer for Windows with idle-time detection, manual time entry, break alerts and taskbar progress.",
   "main": "src/main/main.js",
   "author": {

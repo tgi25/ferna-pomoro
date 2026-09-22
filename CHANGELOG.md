@@ -4,6 +4,43 @@ All notable changes to Ferna Pomoro are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] — 2026-09-22
+
+### Added
+- **Minutes left on the taskbar button.** The button's own icon becomes a cat face
+  in the phase colour (red focus, green short break, blue long break, amber
+  paused) with the minutes left in large white digits, and a ✓ when the session
+  is done. At 24–32 px it is the largest number Windows lets an app show on the
+  taskbar. The normal app icon comes back when nothing is running.
+- Settings → Taskbar & tray: **Show the minutes left on the taskbar button**, and
+  **Icon shape**: Cat face or Circle.
+
+### Changed
+- The tray icon is a cat face with larger digits instead of a ringed circle.
+  Progress is shown by the face darkening from the top. The circle is still
+  available in Settings.
+- While the button icon shows the time, the corner badge is hidden so it doesn't
+  cover the digits. It returns when nothing is running or the countdown is off.
+
+## [1.3.0] — 2026-09-22
+
+### Added
+- **"Time to start work" window.** When the computer is switched on, wakes from
+  sleep, or Ferna Pomoro is opened, and nothing has started after a set time
+  (default 5 minutes), a full-screen window like the break window appears. It
+  shows **Start focus now**, **Remind me in N min** (or Esc) and **Not today**. It
+  waits while you are away. It needs the app to start with Windows, and Settings
+  offers a one-click switch for that.
+- **"Session complete" window.** At the end of every focus session and break, a
+  full-screen window shows what finished and today's progress. It offers the next
+  step, the alternative (another focus session instead of the break, or five more
+  minutes of break) and **Close**, which leaves the timer waiting. It shows the
+  overtime still counting after a focus session. If the next phase starts by
+  itself, the break window carries a "✓ Focus session complete" line, or this
+  window says what has started and offers the way back.
+- **Settings → Reminder windows** gathers all three full-screen reminders, each
+  with its own switch, its delay and a preview button.
+
 ## [1.2.0] — 2026-09-21
 
 ### Added

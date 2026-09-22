@@ -23,7 +23,7 @@ const { Store } = require('./store');
 const { Notifier } = require('./notifier');
 const { ImageFactory } = require('./image-factory');
 const { NotStartedNudge } = require('./nudge');
-const { TaskbarIndicator, COLORS, PHASE_LABEL } = require('./taskbar');
+const { TaskbarIndicator, COLORS, PHASE_LABEL, iconLabel } = require('./taskbar');
 const windows = require('./windows');
 
 const APP_ID = 'lk.ac.sjp.ferna-pomoro';
@@ -54,6 +54,16 @@ class PomoraApp {
     this.overlays = [];
     this.nudgeWins = [];
     this.nudge = new NotStartedNudge({ getSettings: () => this.store.settings });
+    this.startNudge = new NotStartedNudge({
+      getSettings: () => this.store.settings,
+      enabledKey: 'startupReminder',
+      delayKey: 'startupReminderAfterMs',
+    });
+    this.startNudgeSource = 'launch';
+    this.nudgeMode = 'afterBreak';
+    this.completeWins = [];
+    this.completeInfo = null;
+    this.pendingComplete = null; // a phase that just ended and auto-started the next
     this.idleWin = null;
     this.tray = null;
     this.taskbar = null;
@@ -84,6 +94,9 @@ class PomoraApp {
     this.watcher.start();
 
     this.ticker = setInterval(() => this.onTick(), TICK_MS);
+    // The app starts with Windows (or has just been opened): if nothing gets
+    // started in the next few minutes, say so.
+    this.armStartup(Date.now(), 'launch');
     this.broadcastAll();
   }
 
@@ -99,6 +112,7 @@ class PomoraApp {
       settings: this.store.settings,
       getToday: () => this.store.today(),
       onCommand: (cmd) => this.handleAction(cmd),
+      appIcon: nativeImage.createFromPath(windows.ICON),
     });
 
     this.win.on('close', (event) => {
@@ -171,6 +185,12 @@ class PomoraApp {
 
     this.engine.on('phase-start', ({ phase, targetMs }) => {
       this.clearNudge();
+      // A phase that ended a moment ago and started this one by itself.
+      const done = this.pendingComplete;
+      this.pendingComplete = null;
+      this.completedNote = null;
+      this.hideComplete();
+      this.completeInfo = null;
       const cameFromBreak = this.prevPhase === PHASE.SHORT_BREAK || this.prevPhase === PHASE.LONG_BREAK;
       this.prevPhase = phase;
       const minutes = Math.round(targetMs / MINUTE);
@@ -196,13 +216,17 @@ class PomoraApp {
         this.hideOverlays();
       } else {
         this.play(phase === PHASE.LONG_BREAK ? 'long-break' : 'short-break');
+        // The break window doubles as the "focus session complete" window: it
+        // carries a line saying so. Without it, show the complete window.
+        if (done && this.store.settings.breakOverlay) this.completedNote = done;
         this.showOverlays(phase);
       }
+      if (done && !this.completedNote) this.showComplete({ ...done, variant: 'started' });
       this.refreshTrayMenu();
       this.broadcastAll();
     });
 
-    this.engine.on('phase-complete', ({ phase, next, at, autoStart }) => {
+    this.engine.on('phase-complete', ({ phase, next, at, autoStart, entry }) => {
       const minutes = Math.round(this.engine.durationFor(next) / MINUTE);
       const pomodoros = this.store.today().pomodoros;
       if (phase === PHASE.WORK) {
@@ -233,6 +257,13 @@ class PomoraApp {
         });
       }
       if (phase !== PHASE.WORK) this.hideOverlays();
+      if (this.store.settings.sessionEndWindow) {
+        const info = { phase, next, at, entry };
+        // Auto-start: the next phase begins right after this event; the
+        // phase-start handler shows the window once it has.
+        if (autoStart) this.pendingComplete = info;
+        else this.showComplete({ ...info, variant: 'waiting' });
+      }
       this.emitAll('alert', { phase, next, autoStart });
     });
 
@@ -245,6 +276,8 @@ class PomoraApp {
 
     this.engine.on('stopped', () => {
       this.clearNudge();
+      this.hideComplete();
+      this.completeInfo = null;
       this.overlayHidden = false;
       this.hideOverlays();
       this.prevPhase = PHASE.IDLE;
@@ -269,7 +302,10 @@ class PomoraApp {
     }
     // Whether or not idle detection is on, a machine that has just woken up
     // should not greet its user with "you haven't started yet".
-    if (gap > TIME_GAP_MS) this.nudge.restartFrom(now);
+    if (gap > TIME_GAP_MS) {
+      this.nudge.restartFrom(now);
+      this.armStartup(now, 'wake');
+    }
 
     this.engine.tick(now);
     this.checkNudge(now);
@@ -293,6 +329,8 @@ class PomoraApp {
     powerMonitor.on('resume', () => {
       const from = this.suspendedAt || Date.now();
       this.suspendedAt = null;
+      // Opening the lid counts as switching the computer on.
+      this.armStartup(Date.now(), 'wake');
       if (Date.now() - from > 30 * 1000) {
         this.beginAway(from);
         this.endAway(from, Date.now(), { source: 'sleep' });
@@ -347,6 +385,7 @@ class PomoraApp {
     const idleMs = Math.max(0, returnedAt - awayStart);
     // The not-started reminder counts from the moment they sat back down.
     this.nudge.restartFrom(returnedAt);
+    this.startNudge.restartFrom(returnedAt);
     const s = this.engine.snapshot();
     const thresholdMs = this.store.settings.idleThresholdSec * 1000;
 
@@ -589,6 +628,11 @@ class PomoraApp {
       color: COLORS[phase],
       today: { focusText: formatDuration(today.focusMs), pomodoros: today.pomodoros },
       suggestion: this.breakSuggestion(phase),
+      completedText: this.completedNote
+        ? `✓ Focus session complete · ${formatDuration(
+            (this.completedNote.entry && this.completedNote.entry.workedMs) || this.engine.durationFor(PHASE.WORK)
+          )} logged`
+        : '',
     };
   }
 
@@ -612,22 +656,42 @@ class PomoraApp {
     return list[Math.floor(Math.random() * list.length)];
   }
 
-  // ------------------------------------------------ not started after break
+  // ------------------------------------------------ "time to start" reminders
+  //
+  // Two reminders share one full-screen window:
+  //   afterBreak — a break ended and the next focus session is still waiting
+  //   startup    — the computer was switched on (or woke up, or the app was
+  //                opened) and nothing has been started since
 
-  /** Put the reminder up if a break ended a while ago and focus never began. */
-  checkNudge(now = Date.now()) {
-    const s = this.engine.snapshot(now);
-    const awaitingWork = s.status === STATUS.AWAITING && s.nextPhase === PHASE.WORK;
-    const away = !!(this.watcher.away && this.store.settings.idleDetection);
-    if (this.nudge.check(now, { awaitingWork, away })) this.showNudge();
+  reminderFor(mode) {
+    return mode === 'startup' ? this.startNudge : this.nudge;
   }
 
-  showNudge({ preview = false } = {}) {
+  /** Put a reminder up if one is due. Called every tick. */
+  checkNudge(now = Date.now()) {
+    const s = this.engine.snapshot(now);
+    const away = !!(this.watcher.away && this.store.settings.idleDetection);
+    const awaitingWork = s.status === STATUS.AWAITING && s.nextPhase === PHASE.WORK;
+    const stopped = s.status === STATUS.STOPPED;
+    if (this.nudge.check(now, { awaitingWork, away })) this.showNudge('afterBreak');
+    if (this.startNudge.check(now, { awaitingWork: stopped, away })) this.showNudge('startup');
+  }
+
+  /** The computer has just come on or woken up: start the switch-on countdown. */
+  armStartup(now = Date.now(), source = 'launch') {
+    if (this.engine.status !== STATUS.STOPPED || this.startNudge.showing) return;
+    this.startNudge.arm(now);
+    this.startNudgeSource = source;
+  }
+
+  showNudge(mode = 'afterBreak', { preview = false } = {}) {
+    this.nudgeMode = mode;
+    this.hideComplete(); // the reminder supersedes a "session complete" window
     if (!this.nudgeWins.length || this.nudgeWins.some((w) => w.isDestroyed())) {
       this.nudgeWins.forEach((w) => !w.isDestroyed() && w.destroy());
       this.nudgeWins = windows.createNudgeWindows();
     }
-    const payload = this.nudgePayload();
+    const payload = this.nudgePayload(mode);
     this.nudgeWins.forEach((w, i) => {
       if (w.isDestroyed()) return;
       // The primary screen takes focus so Esc and the buttons work at once.
@@ -642,11 +706,15 @@ class PomoraApp {
       if (w.webContents.isLoading()) w.webContents.once('did-finish-load', send);
       else send();
     });
-    this.play('back-to-work');
+    this.play(mode === 'startup' ? 'work-start' : 'back-to-work');
     if (!preview) {
+      const since = formatDuration(this.reminderFor(mode).sinceBreakMs());
       this.notifier.show({
-        title: "⏳ You haven't started work yet",
-        body: `Your break ended ${formatDuration(this.nudge.sinceBreakMs())} ago.`,
+        title: mode === 'startup' ? '🍅 Time to start work' : "⏳ You haven't started work yet",
+        body:
+          mode === 'startup'
+            ? `Your computer has been on for ${since} and no focus session has started.`
+            : `Your break ended ${since} ago.`,
         actions: [{ id: 'start-work', label: 'Start focus' }],
       });
     }
@@ -663,32 +731,194 @@ class PomoraApp {
     return this.nudgeWins.some((w) => !w.isDestroyed() && w.isVisible());
   }
 
-  /** Focus started, the timer stopped: the reminder has nothing left to say. */
+  /** Something started, or the timer stopped: neither reminder has anything to say. */
   clearNudge() {
     this.nudge.disarm();
+    this.startNudge.disarm();
     this.hideNudge();
   }
 
   snoozeNudge(ms) {
-    this.nudge.snooze(Date.now(), ms);
+    this.reminderFor(this.nudgeMode).snooze(Date.now(), ms);
     this.hideNudge();
     this.broadcastAll();
   }
 
-  nudgePayload() {
+  /** "Stop the timer" after a break; "Not today" after switching on. */
+  stopFromNudge() {
+    if (this.nudgeMode === 'startup') {
+      this.startNudge.disarm();
+      this.hideNudge();
+    } else {
+      this.engine.stop();
+      this.clearNudge();
+    }
+    this.broadcastAll();
+  }
+
+  nudgePayload(mode = 'afterBreak') {
     const today = this.store.today();
-    const endedAt = this.nudge.breakEndedAt || Date.now();
+    const reminder = this.reminderFor(mode);
+    const sinceAt = reminder.breakEndedAt || Date.now();
+    const at = new Date(sinceAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const focusMinutes = Math.round(this.engine.durationFor(PHASE.WORK) / MINUTE);
+    const taskTitle = this.currentTaskTitle();
+    const base = {
+      mode,
+      sinceAt,
+      nextText: taskTitle
+        ? `Next: ${focusMinutes} minutes on “${taskTitle}”`
+        : `Next: a ${focusMinutes}-minute focus session`,
+      snoozeMinutes: Math.round(reminder.delayMs / MINUTE),
+      count: reminder.shownCount,
+      todayText:
+        today.pomodoros > 0 || today.focusMs > 0
+          ? `${formatDuration(today.focusMs)} focused today · ${today.pomodoros} pomodoros`
+          : 'Nothing focused yet today',
+    };
+    if (mode === 'startup') {
+      const hour = new Date().getHours();
+      return {
+        ...base,
+        kicker: hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening',
+        headline: 'Time to start work',
+        sinceText:
+          this.startNudgeSource === 'wake'
+            ? `since your computer woke up at ${at}`
+            : `since your computer came on at ${at}`,
+        stopLabel: 'Not today',
+      };
+    }
     const s = this.engine.snapshot();
     return {
-      breakEndedAt: endedAt,
-      endedAtText: new Date(endedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      breakLabel: s.phase === PHASE.LONG_BREAK ? 'long break' : 'break',
-      focusMinutes: Math.round(this.engine.durationFor(PHASE.WORK) / MINUTE),
-      taskTitle: this.currentTaskTitle(),
-      snoozeMinutes: Math.round(this.nudge.delayMs / MINUTE),
-      count: this.nudge.shownCount,
-      today: { focusText: formatDuration(today.focusMs), pomodoros: today.pomodoros },
+      ...base,
+      kicker: 'Break is over',
+      headline: "You haven't started work yet",
+      sinceText: `since your ${s.phase === PHASE.LONG_BREAK ? 'long break' : 'break'} ended at ${at}`,
+      stopLabel: 'Stop the timer',
     };
+  }
+
+  // ------------------------------------------------------- session complete
+
+  /**
+   * Full-screen "this session is done" window. Two variants:
+   *   waiting — the next phase waits for the user: start it, start the other
+   *             kind instead, or close the window and decide later
+   *   started — the next phase started by itself; the window says so and
+   *             offers the way back
+   */
+  showComplete(info, { preview = false } = {}) {
+    this.completeInfo = { ...info, preview };
+    if (!this.completeWins.length || this.completeWins.some((w) => w.isDestroyed())) {
+      this.completeWins.forEach((w) => !w.isDestroyed() && w.destroy());
+      this.completeWins = windows.createCompleteWindows();
+    }
+    const payload = this.completePayload(this.completeInfo);
+    this.completeWins.forEach((w, i) => {
+      if (w.isDestroyed()) return;
+      if (i === 0) {
+        w.show();
+        w.focus();
+      } else {
+        w.showInactive();
+      }
+      w.setAlwaysOnTop(true, 'screen-saver');
+      const send = () => {
+        if (w.isDestroyed()) return;
+        w.webContents.send('pomora:complete', payload);
+        w.webContents.send('pomora:state', this.buildState());
+      };
+      if (w.webContents.isLoading()) w.webContents.once('did-finish-load', send);
+      else send();
+    });
+    this.broadcastAll();
+  }
+
+  hideComplete() {
+    this.completeWins.forEach((w) => {
+      if (!w.isDestroyed() && w.isVisible()) w.hide();
+    });
+  }
+
+  completeIsVisible() {
+    return this.completeWins.some((w) => !w.isDestroyed() && w.isVisible());
+  }
+
+  completePayload(info) {
+    const today = this.store.today();
+    const mins = (phase) => Math.round(this.engine.durationFor(phase) / MINUTE);
+    const label = (phase) => (PHASE_LABEL[phase] || 'Focus').toLowerCase();
+    const workDone = info.phase === PHASE.WORK;
+    const loggedMs = info.entry && info.entry.workedMs ? info.entry.workedMs : this.engine.durationFor(info.phase);
+
+    let primary;
+    let alt;
+    let note;
+    if (info.variant === 'started') {
+      if (info.next === PHASE.WORK) {
+        primary = 'Carry on';
+        alt = '5 more minutes of break';
+        note = `Your ${mins(PHASE.WORK)}-minute focus session has started.`;
+      } else {
+        primary = 'Enjoy the break';
+        alt = 'Skip the break';
+        note = `Your ${mins(info.next)}-minute ${label(info.next)} has started.`;
+      }
+    } else if (workDone) {
+      primary = `Start ${label(info.next)} (${mins(info.next)} min)`;
+      alt = 'Start another focus session';
+      note = 'Take the break, or keep going with another session.';
+    } else {
+      primary = `Start focus (${mins(PHASE.WORK)} min)`;
+      alt = '5 more minutes of break';
+      note = this.currentTaskTitle() ? `Next up: “${this.currentTaskTitle()}”.` : 'Ready for the next session?';
+    }
+
+    return {
+      variant: info.variant,
+      finished: info.phase,
+      next: info.next,
+      color: COLORS[info.phase],
+      nextColor: COLORS[info.next],
+      kicker: workDone ? 'Focus session complete' : `${PHASE_LABEL[info.phase]} complete`,
+      headline: workDone
+        ? `${formatDuration(loggedMs)} of focus, done`
+        : 'Break over',
+      note,
+      primary,
+      alt,
+      todayText: `${formatDuration(today.focusMs)} focused today · ${today.pomodoros} pomodoros`,
+      goal: this.store.settings.dailyGoal,
+      pomodoros: today.pomodoros,
+    };
+  }
+
+  /** A button on the "session complete" window. */
+  runComplete(which) {
+    const info = this.completeInfo;
+    this.completeInfo = null;
+    this.hideComplete();
+    if (!info || which === 'close') {
+      this.broadcastAll();
+      return;
+    }
+    const now = Date.now();
+    const breakPhase = info.phase === PHASE.LONG_BREAK ? PHASE.LONG_BREAK : PHASE.SHORT_BREAK;
+    if (info.variant === 'started') {
+      if (which === 'primary') return this.broadcastAll();
+      if (info.next === PHASE.WORK) {
+        this.engine.startPhase(breakPhase, now, { targetMs: 5 * MINUTE });
+      } else {
+        this.engine.skip(now);
+      }
+    } else if (this.engine.status === STATUS.AWAITING) {
+      if (which === 'primary') this.engine.acceptNext(now);
+      else if (info.phase === PHASE.WORK) this.engine.acceptNext(now, { phase: PHASE.WORK });
+      else this.engine.startPhase(breakPhase, now, { targetMs: 5 * MINUTE });
+    }
+    // A preview from Settings with nothing waiting: every button just closes it.
+    this.broadcastAll();
   }
 
   // ------------------------------------------------------------------ audio
@@ -726,6 +956,7 @@ class PomoraApp {
       canReopenOverlay: this.canReopenOverlay(),
       breakOverlayEnabled: this.store.settings.breakOverlay,
       nudgeVisible: this.nudgeIsVisible(),
+      completeVisible: this.completeIsVisible(),
       notStartedSinceMs:
         s.status === STATUS.AWAITING && s.nextPhase === PHASE.WORK ? this.nudge.sinceBreakMs() : 0,
     };
@@ -784,14 +1015,14 @@ class PomoraApp {
     let label = '';
     let progress = 0;
     if (settings.trayCountdown && state.phase !== PHASE.IDLE) {
-      if (state.status === STATUS.AWAITING) label = '✓';
-      else label = String(Math.max(0, Math.ceil(state.remainingMs / MINUTE)));
-      progress = state.progress;
+      label = iconLabel(state);
+      progress = state.status === STATUS.AWAITING ? 0 : state.progress;
     } else {
       label = String(today.pomodoros);
     }
     const color = TaskbarIndicator.colorFor(state);
-    const key = `${label}|${color}|${Math.round(progress * 20)}|${state.status}`;
+    const shape = settings.iconShape === 'round' ? 'round' : 'cat';
+    const key = `${shape}|${label}|${color}|${Math.round(progress * 10)}|${state.status}`;
     const tip = [
       state.phase === PHASE.IDLE
         ? 'Ferna Pomoro — ready'
@@ -805,12 +1036,8 @@ class PomoraApp {
 
     if (key === this.lastTrayKey) return;
     this.lastTrayKey = key;
-    const img = await this.images.trayIcon({
-      label,
-      color,
-      progress,
-      dimmed: state.status === STATUS.PAUSED,
-    });
+    const spec = { label, color, progress, dimmed: state.status === STATUS.PAUSED };
+    const img = shape === 'cat' ? await this.images.catIcon(spec) : await this.images.trayIcon(spec);
     if (!this.tray.isDestroyed() && !img.isEmpty()) this.tray.setImage(img);
   }
 
@@ -1040,17 +1267,32 @@ class PomoraApp {
         this.handleAction('start-work');
         return true;
       case 'nudge:snooze':
-        this.snoozeNudge(Number(payload.ms) || this.nudge.delayMs);
+        this.snoozeNudge(Number(payload.ms) || this.reminderFor(this.nudgeMode).delayMs);
         return true;
       case 'nudge:stop':
-        this.engine.stop();
-        this.clearNudge();
-        this.broadcastAll();
+        this.stopFromNudge();
         return true;
       case 'nudge:show':
         // Preview from Settings. Changes no state: the buttons still work.
-        this.showNudge({ preview: true });
+        this.showNudge(payload.mode === 'startup' ? 'startup' : 'afterBreak', { preview: true });
         return true;
+
+      // session complete --------------------------------------------------
+      case 'complete:primary':
+      case 'complete:alt':
+      case 'complete:close':
+        this.runComplete(type.split(':')[1]);
+        return true;
+      case 'complete:show': {
+        // Preview from Settings.
+        const phase = payload.phase === 'break' ? PHASE.SHORT_BREAK : PHASE.WORK;
+        const next = phase === PHASE.WORK ? PHASE.SHORT_BREAK : PHASE.WORK;
+        this.showComplete(
+          { phase, next, at: Date.now(), entry: null, variant: 'waiting' },
+          { preview: true }
+        );
+        return true;
+      }
 
       case 'session:add-manual': {
         const record = store.addManualSession(payload);
@@ -1073,11 +1315,14 @@ class PomoraApp {
   applySettings(patch) {
     const settings = this.store.updateSettings(patch);
     this.engine.updateSettings(settings);
-    if (!settings.notStartedReminder && this.nudgeIsVisible()) {
+    const activeReminder = this.reminderFor(this.nudgeMode);
+    if (!activeReminder.enabled && this.nudgeIsVisible()) {
       this.hideNudge();
-      this.nudge.showing = false;
+      activeReminder.showing = false;
     }
     this.nudge.refresh();
+    this.startNudge.refresh();
+    if (!settings.sessionEndWindow && this.completeIsVisible()) this.hideComplete();
     this.watcher.setThreshold(settings.idleThresholdSec);
     this.watcher.setEnabled(settings.idleDetection);
     if (this.taskbar) this.taskbar.setSettings(settings);

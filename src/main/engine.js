@@ -234,7 +234,11 @@ class PomodoroEngine extends EventEmitter {
   }
 
   /** Accept the phase the engine is waiting on (ends any overtime). */
-  acceptNext(now = this.now()) {
+  /**
+   * Start what comes next. `phase` overrides the scheduled next phase — e.g.
+   * "another focus session" instead of the break that was due.
+   */
+  acceptNext(now = this.now(), { phase = null } = {}) {
     if (this.status !== STATUS.AWAITING) return;
     const over = this.overtimeMs(now);
     if (over > 1000 && this.phase === PHASE.WORK) {
@@ -251,7 +255,7 @@ class PomodoroEngine extends EventEmitter {
         taskId: this.taskId,
       });
     }
-    const next = this.nextPhase || PHASE.WORK;
+    const next = phase || this.nextPhase || PHASE.WORK;
     this.startPhase(next, now);
   }
 

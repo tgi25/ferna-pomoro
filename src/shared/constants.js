@@ -69,6 +69,9 @@ const DEFAULT_SETTINGS = {
   overlayReminder: true, // nudge when the break ends with the curtain closed
   notStartedReminder: true, // full-screen reminder when focus has not started after a break
   notStartedAfterMs: 5 * MINUTE, // …this long after the break ran out
+  startupReminder: true, // full-screen "time to start" after the computer is switched on
+  startupReminderAfterMs: 5 * MINUTE, // …if nothing has started this long after
+  sessionEndWindow: true, // full-screen "session complete" with what to do next
   soundEnabled: true,
   volume: 0.7,
   tickingEnabled: false,
@@ -82,6 +85,8 @@ const DEFAULT_SETTINGS = {
   overlayBadge: 'pomodoros', // 'pomodoros' | 'remaining' | 'focusTime' | 'off'
   titleCountdown: true,
   trayCountdown: true,
+  taskbarLiveIcon: true, // the taskbar button's own icon shows the minutes left
+  iconShape: 'cat', // 'cat' | 'round' — shape of the live tray and taskbar icons
   minimizeToTray: true,
   closeToTray: true,
 

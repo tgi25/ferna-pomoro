@@ -34,6 +34,8 @@ async function run(pomora) {
   check('tray icon renders', !tray.isEmpty(), `${tray.getSize().width}px`);
   const glyph = await pomora.images.glyph('pause');
   check('thumbar glyph renders', !glyph.isEmpty());
+  const cat = await pomora.images.catIcon({ label: '24', color: '#e0483f', progress: 0.4 });
+  check('cat-face icon renders', !cat.isEmpty(), `${cat.getSize().width}px`);
 
   // --- timer --------------------------------------------------------------
   pomora.command('timer:start');
@@ -51,6 +53,19 @@ async function run(pomora) {
   await pomora.taskbar.update(engine.snapshot());
   check('taskbar updated without throwing', true, pomora.win.getTitle());
   check('window title counts down', /\d\d:\d\d/.test(pomora.win.getTitle()), pomora.win.getTitle());
+  pomora.applySettings({ taskbarLiveIcon: true, iconShape: 'cat' });
+  await pomora.taskbar.update(engine.snapshot());
+  check(
+    'the taskbar button icon shows the minutes left',
+    /^cat\|\d+\|/.test(pomora.taskbar._lastIconKey),
+    pomora.taskbar._lastIconKey
+  );
+  await pomora.updateTray(engine.snapshot());
+  check('the tray icon is a cat face too', /^cat\|/.test(pomora.lastTrayKey), pomora.lastTrayKey);
+  pomora.applySettings({ iconShape: 'round' });
+  await pomora.taskbar.update(engine.snapshot());
+  check('the circle shape can be chosen instead', /^round\|/.test(pomora.taskbar._lastIconKey));
+  pomora.applySettings({ iconShape: 'cat' });
 
   // --- the idle story -----------------------------------------------------
   // Pretend the user worked 8 minutes, then walked away 20 minutes ago.
@@ -192,6 +207,125 @@ async function run(pomora) {
   engine.stop();
   pomora.hideOverlays();
 
+  // --- "session complete" window ---------------------------------------------
+  // Every fourth pomodoro earns a long break, so accept either kind.
+  const isBreak = (p) => p === PHASE.SHORT_BREAK || p === PHASE.LONG_BREAK;
+  const completeWork = async () => {
+    engine.stop();
+    engine.startPhase(PHASE.WORK);
+    engine.targetMs = 150;
+    await wait(250);
+    pomora.onTick();
+    await wait(400);
+  };
+  pomora.applySettings({ sessionEndWindow: true, autoStartBreaks: false, autoStartWork: false });
+  await completeWork();
+  check(
+    'a finished focus session shows the complete window',
+    pomora.completeIsVisible() && engine.status === STATUS.AWAITING && pomora.completeInfo.variant === 'waiting'
+  );
+  const cp = pomora.completePayload(pomora.completeInfo);
+  check('it offers the break and another focus session', /break/i.test(cp.primary) && /focus/i.test(cp.alt), `${cp.primary} | ${cp.alt}`);
+  pomora.command('complete:alt');
+  await wait(150);
+  check(
+    '"another focus session" starts focus instead of the break',
+    !pomora.completeIsVisible() && engine.phase === PHASE.WORK && engine.status === STATUS.RUNNING
+  );
+
+  await completeWork();
+  pomora.command('complete:close');
+  await wait(150);
+  check(
+    'closing it leaves the timer waiting',
+    !pomora.completeIsVisible() && engine.status === STATUS.AWAITING && isBreak(engine.nextPhase)
+  );
+  pomora.command('timer:accept'); // the break
+  engine.targetMs = 150;
+  await wait(250);
+  pomora.onTick();
+  await wait(400);
+  check('a finished break shows the complete window', pomora.completeIsVisible() && isBreak(pomora.completeInfo.phase));
+  pomora.command('complete:primary');
+  await wait(150);
+  check('"Start focus" from it starts focus', engine.phase === PHASE.WORK && !pomora.completeIsVisible());
+
+  pomora.applySettings({ autoStartBreaks: true, breakOverlay: true });
+  await completeWork();
+  check(
+    'when the break starts by itself, the break window says the session is complete',
+    isBreak(engine.phase) &&
+      !pomora.completeIsVisible() &&
+      /complete/.test(pomora.overlayPayload(engine.phase).completedText),
+    `${pomora.overlayPayload(engine.phase).completedText} | visible=${pomora.completeIsVisible()} phase=${engine.phase}`
+  );
+  pomora.applySettings({ breakOverlay: false });
+  await completeWork();
+  check(
+    'without the break window, the complete window says the break has started',
+    pomora.completeIsVisible() && pomora.completeInfo.variant === 'started' && isBreak(engine.phase),
+    `visible=${pomora.completeIsVisible()} info=${JSON.stringify(pomora.completeInfo && pomora.completeInfo.variant)} phase=${engine.phase}`
+  );
+  pomora.command('complete:alt'); // skip the break
+  await wait(150);
+  check('"Skip the break" from it starts focus', engine.phase === PHASE.WORK && !pomora.completeIsVisible());
+
+  pomora.applySettings({ sessionEndWindow: false, autoStartBreaks: false, breakOverlay: true });
+  await completeWork();
+  check('turning it off keeps it away', !pomora.completeIsVisible() && engine.status === STATUS.AWAITING);
+  pomora.applySettings({ sessionEndWindow: true, autoStartBreaks: true });
+  engine.stop();
+  pomora.hideOverlays();
+
+  // --- "time to start work" after switching on -------------------------------
+  pomora.applySettings({ startupReminder: true, startupReminderAfterMs: 5 * MINUTE });
+  engine.stop();
+  pomora.armStartup(Date.now(), 'launch');
+  check('switching on arms the start-work reminder', pomora.startNudge.armed);
+  pomora.onTick();
+  await wait(100);
+  check('it waits for its delay', !pomora.nudgeIsVisible());
+  pomora.startNudge.dueAt = Date.now() - 1;
+  pomora.onTick();
+  await wait(400);
+  check(
+    'the start-work window appears when nothing has started',
+    pomora.nudgeIsVisible() && pomora.nudgeMode === 'startup',
+    pomora.nudgePayload('startup').headline
+  );
+  pomora.command('nudge:stop'); // "Not today"
+  await wait(150);
+  check(
+    '"Not today" closes it and leaves the timer alone',
+    !pomora.nudgeIsVisible() && !pomora.startNudge.armed && engine.status === STATUS.STOPPED
+  );
+  pomora.lastTickAt = Date.now() - 3 * 60 * MINUTE; // the machine slept
+  pomora.onTick();
+  check('waking the computer arms it again', pomora.startNudge.armed && pomora.startNudgeSource === 'wake');
+  pomora.startNudge.dueAt = Date.now() - 1;
+  pomora.onTick();
+  await wait(300);
+  pomora.command('nudge:start');
+  await wait(150);
+  check(
+    '"Start focus now" from it starts work',
+    !pomora.nudgeIsVisible() && engine.phase === PHASE.WORK && !pomora.startNudge.armed
+  );
+  engine.stop();
+  pomora.armStartup(Date.now(), 'launch');
+  engine.startPhase(PHASE.SHORT_BREAK);
+  check('starting anything cancels it', !pomora.startNudge.armed);
+  engine.stop();
+  pomora.hideOverlays();
+  pomora.applySettings({ startupReminder: false });
+  pomora.armStartup(Date.now(), 'launch');
+  pomora.startNudge.dueAt = Date.now() - 1;
+  pomora.onTick();
+  await wait(200);
+  check('turning it off keeps it away', !pomora.nudgeIsVisible());
+  pomora.startNudge.disarm();
+  pomora.applySettings({ startupReminder: true });
+
   // --- the break window can be closed without ending the break ------------
   pomora.command('timer:stop');
   pomora.store.updateSettings({ breakOverlay: true, overlayCanHide: true });
@@ -276,6 +410,11 @@ async function run(pomora) {
   const stats = pomora.command('stats:get');
   check('stats payload shape', Array.isArray(stats.days) && stats.days.length === 14);
   check('csv export builds', store.exportCsv().split('\n')[0].startsWith('started_at'));
+
+  // --- the normal icon comes back when nothing runs -------------------------
+  engine.stop();
+  await pomora.taskbar.update(engine.snapshot());
+  check('with nothing running the taskbar shows the app icon again', pomora.taskbar._lastIconKey === 'app');
 
   // --- mini window --------------------------------------------------------
   pomora.toggleMini(true);

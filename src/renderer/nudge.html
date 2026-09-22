@@ -105,6 +105,13 @@
       .secondary-only .clock {
         font-size: 64px;
       }
+      body[data-mode='startup'] {
+        --accent: #e3a23c;
+        background: radial-gradient(1200px 700px at 50% 30%, #2a2114 0%, #110e0a 72%);
+      }
+      body[data-mode='startup'] .clock {
+        color: #ffe7c2;
+      }
       .hidden {
         display: none !important;
       }
@@ -125,7 +132,7 @@
           <button class="primary" id="start">Start focus now</button>
         </div>
         <p class="footnote" id="footnote">
-          Esc also reminds you later. You can change or turn off this reminder in Settings → After a break.
+          Esc also reminds you later. You can change or turn off this reminder in Settings → Reminder windows.
         </p>
       </div>
     </div>

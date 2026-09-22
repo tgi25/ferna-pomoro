@@ -196,11 +196,22 @@
           </fieldset>
 
           <fieldset class="card">
-            <legend>After a break</legend>
-            <label class="row"><span>Remind me if I haven't started work</span><input type="checkbox" data-setting="notStartedReminder" /></label>
-            <label class="row"><span>Remind me after</span><input type="number" min="1" max="120" data-setting="notStartedAfterMin" /><em>min without starting</em></label>
-            <p class="hint" id="nudge-hint">A full-screen window, like the break window, appears when a break has ended and the next focus session still hasn't started. It waits while you are away from the computer.</p>
-            <div class="row row--buttons"><button class="btn btn--quiet" id="btn-nudge-preview">Preview the reminder</button></div>
+            <legend>Reminder windows</legend>
+            <label class="row"><span>Show a window when a focus session or break ends</span><input type="checkbox" data-setting="sessionEndWindow" /></label>
+            <label class="row"><span>Remind me to start work after I switch on</span><input type="checkbox" data-setting="startupReminder" /></label>
+            <label class="row"><span>…if nothing has started after</span><input type="number" min="1" max="120" data-setting="startupReminderAfterMin" /><em>min</em></label>
+            <label class="row"><span>Remind me if I haven't started work after a break</span><input type="checkbox" data-setting="notStartedReminder" /></label>
+            <label class="row"><span>…if focus hasn't started after</span><input type="number" min="1" max="120" data-setting="notStartedAfterMin" /><em>min</em></label>
+            <p class="hint" id="reminder-hint"></p>
+            <div class="row row--buttons">
+              <span>Preview</span>
+              <span class="btn-group">
+                <button class="btn btn--sm" data-preview="complete-work">Focus done</button>
+                <button class="btn btn--sm" data-preview="complete-break">Break done</button>
+                <button class="btn btn--sm" data-preview="startup">Switch-on</button>
+                <button class="btn btn--sm" data-preview="after-break">After a break</button>
+              </span>
+            </div>
           </fieldset>
 
           <fieldset class="card">
@@ -252,7 +263,16 @@
               </select>
             </label>
             <label class="row"><span>Countdown in the window title</span><input type="checkbox" data-setting="titleCountdown" /></label>
+            <label class="row"><span>Show the minutes left on the taskbar button</span><input type="checkbox" data-setting="taskbarLiveIcon" /></label>
             <label class="row"><span>Countdown on the tray icon</span><input type="checkbox" data-setting="trayCountdown" /></label>
+            <label class="row">
+              <span>Icon shape</span>
+              <select data-setting="iconShape">
+                <option value="cat">Cat face</option>
+                <option value="round">Circle</option>
+              </select>
+            </label>
+            <p class="hint">Windows keeps tray icons at 16 px, so the taskbar button (24–32 px) shows the time largest. While it does, the corner badge steps aside.</p>
             <label class="row"><span>Minimise to tray</span><input type="checkbox" data-setting="minimizeToTray" /></label>
             <label class="row"><span>Close to tray</span><input type="checkbox" data-setting="closeToTray" /></label>
             <label class="row"><span>Mini timer stays on top</span><input type="checkbox" data-setting="alwaysOnTopMini" /></label>

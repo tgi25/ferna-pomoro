@@ -16,6 +16,8 @@ window.pomora.on('overlay', (info) => {
   el('kicker').textContent = info.phaseLabel;
   el('suggestion').textContent = info.suggestion;
   el('today').textContent = `${info.today.focusText} focused today · ${info.today.pomodoros} pomodoros`;
+  el('done').textContent = info.completedText || '';
+  el('done').classList.toggle('hidden', !info.completedText);
 
   canHide = !!info.canHide;
   // "Close this window" leaves the curtain; "Back to work now" ends the break.

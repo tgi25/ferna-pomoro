@@ -103,10 +103,10 @@ function createOverlayWindows() {
 }
 
 /**
- * "You haven't started work yet" — full-screen like the break curtain, one per
- * display, with the controls on the primary one.
+ * A full-screen window on every display, like the break curtain, with the
+ * controls on the primary screen (the page reads `?primary=1`).
  */
-function createNudgeWindows() {
+function createCurtainWindows({ page, background, title }) {
   return screen.getAllDisplays().map((display, index) => {
     const win = new BrowserWindow({
       x: display.bounds.x,
@@ -122,16 +122,34 @@ function createNudgeWindows() {
       fullscreenable: true,
       skipTaskbar: true,
       alwaysOnTop: true,
-      backgroundColor: '#140d0f',
-      title: 'Ferna Pomoro — time to start',
+      backgroundColor: background,
+      title,
       webPreferences: baseWebPrefs,
     });
     win.setAlwaysOnTop(true, 'screen-saver');
-    win.loadFile(path.join(RENDERER, 'nudge.html'), {
+    win.loadFile(path.join(RENDERER, page), {
       query: { primary: index === 0 ? '1' : '0' },
     });
     hardenNavigation(win);
     return win;
+  });
+}
+
+/** "Time to start work" — after a break, or after the computer is switched on. */
+function createNudgeWindows() {
+  return createCurtainWindows({
+    page: 'nudge.html',
+    background: '#140d0f',
+    title: 'Ferna Pomoro — time to start',
+  });
+}
+
+/** "Session complete" — what just finished, and what to do next. */
+function createCompleteWindows() {
+  return createCurtainWindows({
+    page: 'complete.html',
+    background: '#0f1318',
+    title: 'Ferna Pomoro — session complete',
   });
 }
 
@@ -165,6 +183,7 @@ module.exports = {
   createMiniWindow,
   createOverlayWindows,
   createNudgeWindows,
+  createCompleteWindows,
   createIdleWindow,
   ICON,
 };

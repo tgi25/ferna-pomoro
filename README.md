@@ -16,9 +16,12 @@
 
 </div>
 
-> **New in 1.2.0:** a full-screen *"You haven't started work yet"* reminder when a
-> break has ended and focus still hasn't started.
-> [See how it works](#you-havent-started-work-yet) · [update now](#updating-to-a-new-version)
+> **New in 1.4.0:** the minutes left now appear large on the taskbar button itself,
+> in a cat-face icon, and the tray icon takes the same shape.
+> [See the icons](#the-taskbar-tells-you-how-long-you-have-worked) · [update now](#updating-to-a-new-version)
+>
+> **1.3.0** added a *"Time to start work"* window after switching on and a
+> *"Session complete"* window at the end of every session ([reminder windows](#reminder-windows)).
 
 ---
 
@@ -51,7 +54,7 @@ installing anything. Windows 10 or 11, 64-bit.
 Every release also carries `SHA256SUMS.txt`. To check a download:
 
 ```powershell
-Get-FileHash .\Ferna-Pomoro-Setup-1.2.0.exe -Algorithm SHA256
+Get-FileHash .\Ferna-Pomoro-Setup-1.4.0.exe -Algorithm SHA256
 ```
 
 The installer is not code-signed — a certificate costs more than this project
@@ -180,13 +183,20 @@ an optional ticking clock.
 
 ### The taskbar tells you how long you have worked
 
-Four indicators, all live:
+Five indicators, all live:
 
+- **The taskbar button's icon shows the minutes left**, in large white digits on
+  a cat face coloured by the phase: red for focus, green for a short break, blue
+  for a long one, amber when paused. A ✓ appears when the session is done. This
+  is the biggest number Windows allows an app to put on the taskbar (24–32 px),
+  so it is readable at a glance. With nothing running, the normal app icon
+  returns.
 - **The taskbar button fills** with the progress of the current session — green
   while focusing, yellow while paused or on a break, red when in overtime.
 - **A badge on the corner of the button** carries today's work. It shows the
-  pomodoro count by default, ringed by the progress of the one in flight; you
-  can switch it to *time worked today* (`2h`) or *minutes left in this session*.
+  pomodoro count by default; you can switch it to *time worked today* (`2h`) or
+  *minutes left in this session*. While the button icon is showing the time,
+  the badge steps aside so it doesn't cover the digits.
 - **Hovering the taskbar button** gives the full line: `Focus: 17:42 left ·
   Focused 2h 39m today · 6 pomodoros · 17m idle removed`, and the thumbnail
   preview gets **start/pause, skip and stop buttons** you can press without
@@ -194,8 +204,16 @@ Four indicators, all live:
 - **The window title counts down** (`17:42 · Focus — Ferna Pomoro`), so the time is
   readable from the taskbar and from Alt-Tab.
 
-The tray icon is drawn live too: a tomato-red ring that empties as the session
-runs, with the minutes left in the middle, and today's totals in its tooltip.
+The tray icon is drawn live too, in the same cat shape, with the minutes left
+and today's totals in its tooltip. Windows keeps tray icons at 16 px, so the
+digits are made as large as that allows. The face darkens from the top as the
+session runs down.
+
+![Live icons](docs/shots/16-live-icons.png)
+
+**Settings → Taskbar & tray** turns the button countdown on or off and switches
+both icons between **Cat face** and the older **Circle**. For a bigger clock
+still, the mini timer (`Ctrl+Alt+M`) floats on top of other windows.
 
 ### The break window, on your terms
 
@@ -213,7 +231,53 @@ the break. Once closed, **Show break screen** appears on the Timer pane and in
 the tray menu to bring it back, and if the break ends while the window is closed
 you still get told, so work never resumes silently.
 
-### "You haven't started work yet"
+### Reminder windows
+
+Three full-screen windows, like the break window, cover the moments a Pomodoro
+day usually slips. Each has its own switch in **Settings → Reminder windows**, so
+you can turn any of them off. That card also has a **Preview** button for each.
+
+| Window | When it appears | Buttons |
+| --- | --- | --- |
+| **Session complete** | A focus session or a break has just ended | Start the break (or focus) · the other one instead · Close |
+| **Time to start work** | You switched on the computer, and nothing has started after a set time (5 min by default) | Start focus now · Remind me in N min · Not today |
+| **You haven't started work yet** | A break ended, and focus still hasn't started after a set time (5 min by default) | Start focus now · Remind me in N min · Stop the timer |
+
+#### Session complete
+
+![Focus session complete](docs/shots/13-focus-complete.png)
+
+When a focus session ends, the window says how much focus was logged and shows
+today's pomodoros against your daily goal. It offers the break that is due, or
+another focus session instead. If *Keep counting after the bell* is on, it also
+shows the overtime that is still counting as work. When a break ends, it offers
+the next focus session (with the task you are on), or five more minutes of break.
+**Close this window** (or Esc) leaves the timer waiting. You can decide later from
+the Timer pane or the tray.
+
+If the break starts by itself (*Start breaks automatically*), the break window
+takes this role: a line at the top says *✓ Focus session complete · 25m logged*.
+With the break window turned off, the Session complete window appears instead and
+says the break has started, with a **Skip the break** button. The same goes the
+other way. If focus starts by itself after a break, the window says so and offers
+**5 more minutes of break**.
+
+#### "Time to start work" — after switching on
+
+![Time to start work](docs/shots/12-switch-on.png)
+
+When the computer comes on, wakes from sleep (opening a laptop's lid counts), or
+you open Ferna Pomoro, a countdown starts. If no focus session or break has
+started when it runs out, this window appears. It counts up from when the
+computer came on and shows what is next. **Not today** puts it away until the next
+time the computer is switched on.
+
+It only works if Ferna Pomoro is running, so turn on **Start Ferna Pomoro when
+Windows starts** (Settings → Taskbar & tray). The Reminder windows card offers a
+one-click **Turn it on** while that setting is off. Like the other reminder, it
+waits while you are away from the computer.
+
+#### "You haven't started work yet" — after a break
 
 A break ends and the back-to-work alert goes off. You swipe it away and mean to
 start in a minute. Twenty minutes later nothing has started. The toast is easy to
@@ -240,10 +304,8 @@ that has just woken from sleep gets the same grace. Starting focus any other way
 (the tray, a shortcut, the toast) cancels it. The Timer pane shows it too:
 *Break ended 7 min ago*.
 
-**Settings → After a break** turns it on or off, sets the delay (1–120 minutes)
-and has a **Preview the reminder** button. It only applies when focus waits for
-you after a break. If *Start the next focus session automatically* is on, there is
-nothing to wait for.
+It only applies when focus waits for you after a break. If *Start the next focus
+session automatically* is on, there is nothing to wait for.
 
 ### Tasks, statistics, and the rest
 
@@ -269,15 +331,15 @@ nothing to wait for.
 ```bash
 npm install
 npm start          # run the app
-npm test           # 50 unit tests: engine, idle watcher, store, reminder
+npm test           # 56 unit tests: engine, idle watcher, store, reminders, icons
 npm run dist       # build the Windows installer (needs Wine on Linux)
 python3 tools/make-assets.py   # regenerate sounds and icons
 ```
 
 `npx electron . --selftest` drives the whole app inside Electron — windows, the
 canvas-drawn taskbar images, the full idle freeze/return path, the break-window
-dismissal, the not-started reminder, manual time entry and the IPC surface —
-58 checks, ending in a
+dismissal, the three reminder windows, the live icons, manual time entry and
+the IPC surface — 81 checks, ending in a
 pass/fail summary. `--screenshots` writes `docs/shots/`.
 
 ### How it is laid out
@@ -288,7 +350,7 @@ src/
   main/
     engine.js        the timer state machine — pure, no Electron, fully tested
     idle-watcher.js  turns idle-second readings into away-episodes
-    nudge.js         decides when to say "you haven't started work yet"
+    nudge.js         decides when to say "time to start" (after a break, after switching on)
     store.js         atomic JSON persistence, daily aggregates, CSV export
     taskbar.js       progress bar, overlay badge, thumbnail toolbar, title
     image-factory.js draws the badge/tray/glyph PNGs at runtime
@@ -297,7 +359,7 @@ src/
     main.js          wiring: events, IPC, tray, idle policy, power events
   preload/     the only bridge to the UI (contextIsolation, sandboxed)
   renderer/    timer, tasks, stats, settings, mini, break curtain, idle prompt,
-               not-started reminder
+               "time to start" reminder, "session complete" window
 ```
 
 Two design decisions carry most of the reliability:
@@ -344,9 +406,24 @@ MIT licensed. Built for TGI Fernando.
 
 ## Changelog
 
+**1.4.0**
+- The taskbar button's own icon shows the minutes left, in large digits on a cat
+  face coloured by the phase.
+- The tray icon is a cat face too, with larger digits than the old circle.
+- Settings → Taskbar & tray: turn the button countdown on or off, and choose
+  **Cat face** or **Circle**.
+
+**1.3.0**
+- *Time to start work*: a full-screen window when the computer has been switched on
+  (or woken, or the app opened) and nothing has started after a delay you choose.
+- *Session complete*: a full-screen window at the end of every focus session and
+  break, with the next step, the alternative, or Close.
+- All three reminder windows now share one card, **Settings → Reminder windows**,
+  each with its own switch and a preview button.
+
 **1.2.0**
 - A full-screen "You haven't started work yet" window when a break has ended and
-  focus still hasn't started after a delay you choose (Settings → After a break).
+  focus still hasn't started after a delay you choose (Settings → Reminder windows).
 - "+5 min break" on the break-over alert now gives you five more minutes of break.
   Before, it did nothing because the break had already ended.
 

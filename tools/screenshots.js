@@ -166,10 +166,68 @@ async function run(pomora) {
   pomora.nudge.dueAt = Date.now() - 1;
   pomora.checkNudge();
   await wait(900);
-  pomora.showNudge({ preview: true });
+  pomora.showNudge('afterBreak', { preview: true });
   await wait(400);
   await shoot(pomora.nudgeWins[0], '09-not-started');
   pomora.hideNudge();
+
+  // "Time to start work" after switching on
+  engine.stop();
+  pomora.armStartup(Date.now() - 6 * MINUTE, 'launch');
+  pomora.startNudge.dueAt = Date.now() - 1;
+  pomora.checkNudge();
+  await wait(900);
+  pomora.showNudge('startup', { preview: true });
+  await wait(400);
+  await shoot(pomora.nudgeWins[0], '12-switch-on');
+  pomora.hideNudge();
+  pomora.startNudge.disarm();
+
+  // "Focus session complete", waiting, a minute and a half into overtime
+  pomora.applySettings({ autoStartBreaks: false, sessionEndWindow: true });
+  engine.startPhase(PHASE.WORK);
+  engine.targetMs = 100;
+  await wait(200);
+  engine.tick();
+  engine.overtimeFrom = Date.now() - 95 * 1000;
+  pomora.showComplete({ ...pomora.completeInfo, entry: { workedMs: 25 * MINUTE } });
+  await wait(900);
+  pomora.broadcastAll();
+  await wait(300);
+  await shoot(pomora.completeWins[0], '13-focus-complete');
+  pomora.command('complete:primary'); // the break
+  engine.targetMs = 100;
+  await wait(200);
+  engine.tick();
+  await wait(700);
+  await shoot(pomora.completeWins[0], '14-break-complete');
+  pomora.command('complete:close');
+
+  // The break window when focus ends straight into a break
+  pomora.applySettings({ autoStartBreaks: true });
+  engine.stop();
+  engine.startPhase(PHASE.WORK);
+  engine.targetMs = 100;
+  await wait(200);
+  pomora.completedNote = null;
+  engine.tick();
+  pomora.completedNote = { entry: { workedMs: 25 * MINUTE } };
+  pomora.showOverlays(engine.phase);
+  engine.accumulatedMs = 40 * 1000;
+  engine.startedAt = Date.now();
+  await wait(700);
+  pomora.broadcastAll();
+  await wait(300);
+  await shoot(pomora.overlays[0], '15-break-with-complete');
+  pomora.hideOverlays();
+  engine.stop();
+  engine.startPhase(PHASE.SHORT_BREAK);
+  engine.targetMs = 100;
+  pomora.applySettings({ autoStartWork: false, sessionEndWindow: false });
+  await wait(200);
+  engine.tick();
+  pomora.applySettings({ sessionEndWindow: true });
+  pomora.nudge.arm(Date.now() - 7 * MINUTE);
 
   // The timer pane while it waits
   pomora.emitAll('navigate', { tab: 'timer' });
@@ -182,7 +240,7 @@ async function run(pomora) {
   pomora.broadcastAll();
   await wait(300);
   await pomora.win.webContents.executeJavaScript(
-    "Array.from(document.querySelectorAll('legend')).find((l) => l.textContent === 'After a break').parentElement.scrollIntoView({ block: 'center' })"
+    "Array.from(document.querySelectorAll('legend')).find((l) => l.textContent === 'Reminder windows').parentElement.scrollIntoView({ block: 'center' })"
   );
   await wait(300);
   await shoot(pomora.win, '11-not-started-settings');

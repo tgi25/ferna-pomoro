@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    />
+    <title>Ferna Pomoro — session complete</title>
+    <style>
+      :root {
+        --done: #e0483f; /* colour of what just finished */
+        --next: #1f9d63; /* colour of what comes next */
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+        color: #eef1f7;
+        background: radial-gradient(1200px 700px at 50% 30%, #1a212b 0%, #0d1117 72%);
+        user-select: none;
+      }
+      .wrap {
+        height: 100%;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        padding: 40px;
+      }
+      .tick {
+        width: 92px;
+        height: 92px;
+        margin: 0 auto 22px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: color-mix(in srgb, var(--done) 18%, transparent);
+        border: 2px solid var(--done);
+      }
+      .tick svg {
+        width: 44px;
+        height: 44px;
+        stroke: var(--done);
+      }
+      .kicker {
+        font-size: 13px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--done);
+        margin-bottom: 12px;
+      }
+      h1 {
+        margin: 0 0 12px;
+        font-size: 44px;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+      }
+      .note {
+        font-size: 18px;
+        color: #c9d1de;
+        margin: 0 0 18px;
+      }
+      .overtime {
+        display: inline-block;
+        font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
+        font-size: 15px;
+        color: #ffc9c4;
+        background: rgba(224, 72, 63, 0.12);
+        border: 1px solid rgba(224, 72, 63, 0.35);
+        border-radius: 999px;
+        padding: 5px 14px;
+        margin-bottom: 18px;
+      }
+      .dots {
+        display: flex;
+        justify-content: center;
+        gap: 7px;
+        margin: 4px 0 10px;
+      }
+      .dots span {
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.12);
+      }
+      .dots span.on {
+        background: #e0483f;
+      }
+      .today {
+        font-size: 13.5px;
+        color: #8d97ab;
+        margin: 0 0 30px;
+      }
+      button {
+        font-family: inherit;
+        font-size: 14px;
+        padding: 11px 24px;
+        border-radius: 11px;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        background: rgba(255, 255, 255, 0.06);
+        color: #eef1f7;
+        cursor: pointer;
+        margin: 0 5px;
+      }
+      button:hover {
+        background: rgba(255, 255, 255, 0.13);
+      }
+      button.primary {
+        background: var(--next);
+        border-color: transparent;
+        font-weight: 600;
+        padding: 12px 30px;
+      }
+      .footnote {
+        margin: 18px auto 0;
+        font-size: 12.5px;
+        color: #79839a;
+        max-width: 560px;
+      }
+      .secondary-only h1 {
+        font-size: 32px;
+      }
+      .hidden {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div>
+        <div class="tick">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="5 12.5 10 17.5 19 7" />
+          </svg>
+        </div>
+        <div class="kicker" id="kicker">Focus session complete</div>
+        <h1 id="headline">25m of focus, done</h1>
+        <p class="note" id="note">Take the break, or keep going with another session.</p>
+        <div class="overtime hidden" id="overtime">+00:00 since the bell</div>
+        <div class="dots" id="dots"></div>
+        <p class="today" id="today"></p>
+        <div id="actions">
+          <button id="close">Close this window</button>
+          <button id="alt">Start another focus session</button>
+          <button class="primary" id="primary">Start short break</button>
+        </div>
+        <p class="footnote" id="footnote">
+          Esc closes this window. Turn it off in Settings → Reminder windows.
+        </p>
+      </div>
+    </div>
+    <script src="complete.js"></script>
+  </body>
+</html>
