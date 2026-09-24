@@ -104,6 +104,22 @@ async function run(pomora) {
   await wait(450);
   await shoot(pomora.win, '03-stats');
 
+  // The chart, with its axis
+  await pomora.win.webContents.executeJavaScript(
+    "document.getElementById('chart').scrollIntoView({block:'center'})"
+  );
+  await wait(350);
+  await shoot(pomora.win, '18-chart');
+
+  // One day, in full: open the popup by clicking a bar, as a user would.
+  await pomora.win.webContents.executeJavaScript(
+    "document.querySelectorAll('#chart-plot .bar')[11].click()"
+  );
+  await wait(600);
+  await shoot(pomora.win, '17-day-detail');
+  await pomora.win.webContents.executeJavaScript("document.getElementById('day-close').click()");
+  await wait(200);
+
   pomora.emitAll('navigate', { tab: 'settings' });
   await wait(350);
   await shoot(pomora.win, '04-settings');

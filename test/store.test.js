@@ -275,3 +275,63 @@ test('CSV export carries manual entries and their notes', () => {
   assert.ok(row.includes('manual'));
   assert.ok(row.includes('"Lecture prep, no laptop"'));
 });
+
+test('a day detail adds up that day from its sessions', () => {
+  const store = tmpStore();
+  const day = dayKey();
+  const t = store.addTask({ title: 'Mark papers', estimate: 4 });
+  const at = (h, m) => {
+    const d = new Date();
+    d.setHours(h, m, 0, 0);
+    return d.getTime();
+  };
+  const log = (extra) =>
+    store.logSession({
+      type: 'phase',
+      phase: PHASE.WORK,
+      startedAt: at(9, 0),
+      endedAt: at(9, 25),
+      plannedMs: 25 * MINUTE,
+      workedMs: 25 * MINUTE,
+      idleRemovedMs: 0,
+      reason: 'completed',
+      completed: true,
+      taskId: t.id,
+      ...extra,
+    });
+
+  log({});
+  log({ startedAt: at(9, 30), endedAt: at(9, 55), workedMs: 20 * MINUTE, reason: 'idle-cut', completed: false, idleRemovedMs: 5 * MINUTE });
+  log({ phase: PHASE.SHORT_BREAK, startedAt: at(9, 25), endedAt: at(9, 30), workedMs: 5 * MINUTE, taskId: null });
+  log({ phase: PHASE.LONG_BREAK, startedAt: at(11, 0), endedAt: at(11, 15), workedMs: 15 * MINUTE, taskId: null });
+  store.addManualSession({ startedAt: at(14, 0), workedMs: 45 * MINUTE, pomodoros: 2, taskId: t.id, note: 'at the kitchen table' });
+
+  const detail = store.dayDetail(day);
+  assert.equal(detail.day, day);
+  assert.equal(detail.isToday, true);
+  assert.equal(detail.totals.focusMs, (25 + 20 + 45) * MINUTE);
+  assert.equal(detail.counts.breaks, 2, 'two breaks taken');
+  assert.equal(detail.counts.longBreaks, 1);
+  assert.equal(detail.counts.focusSessions, 3, 'two timed plus one added by hand');
+  assert.equal(detail.counts.completedFocus, 1);
+  assert.equal(detail.counts.endedWhileAway, 1);
+  assert.equal(detail.counts.manualEntries, 1);
+  assert.equal(detail.totals.breakMs, 20 * MINUTE);
+  assert.equal(detail.longestFocusMs, 45 * MINUTE);
+  assert.equal(detail.tasks.length, 1);
+  assert.equal(detail.tasks[0].title, 'Mark papers');
+  assert.equal(detail.tasks[0].focusMs, (25 + 20 + 45) * MINUTE);
+  assert.equal(detail.spanMs, at(14, 45) - at(9, 0));
+  assert.equal(detail.sessions.length, 5);
+  assert.ok(detail.sessions[0].startedAt >= detail.sessions[1].startedAt, 'newest first');
+});
+
+test('a day with nothing on it still answers', () => {
+  const store = tmpStore();
+  const detail = store.dayDetail('2020-01-01');
+  assert.equal(detail.totals.focusMs, 0);
+  assert.equal(detail.counts.breaks, 0);
+  assert.equal(detail.sessions.length, 0);
+  assert.equal(detail.spanMs, 0);
+  assert.equal(detail.isToday, false);
+});

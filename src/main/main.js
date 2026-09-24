@@ -983,7 +983,7 @@ class PomoraApp {
   statsPayload() {
     return {
       today: this.store.today(),
-      days: this.store.recentDays(14),
+      days: this.store.recentDays(30), // the chart shows the last 7, 14 or 30
       streak: this.store.streak(),
       sessions: this.store.sessionsForDay().slice(-60).reverse(),
       goal: this.store.settings.dailyGoal,
@@ -1215,6 +1215,8 @@ class PomoraApp {
       // data --------------------------------------------------------------
       case 'stats:get':
         return this.statsPayload();
+      case 'stats:day':
+        return store.dayDetail(payload.day);
       case 'state:get':
         return this.buildState();
       case 'data:export-csv':

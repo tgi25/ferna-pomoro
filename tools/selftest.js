@@ -408,7 +408,17 @@ async function run(pomora) {
 
   engine.stop();
   const stats = pomora.command('stats:get');
-  check('stats payload shape', Array.isArray(stats.days) && stats.days.length === 14);
+  check('stats payload shape', Array.isArray(stats.days) && stats.days.length === 30);
+  const detail = pomora.command('stats:day', { day: new Date().toISOString().slice(0, 10) });
+  check(
+    'a day detail answers with totals, counts and sessions',
+    !!detail && typeof detail.totals.focusMs === 'number' && Array.isArray(detail.sessions) && detail.isToday,
+    `${Math.round(detail.totals.focusMs / MINUTE)} min · ${detail.sessions.length} sessions · ${detail.counts.breaks} breaks`
+  );
+  const empty = pomora.command('stats:day', { day: '2019-01-01' });
+  check('a day with nothing on it still answers', !!empty && empty.totals.focusMs === 0 && !empty.isToday);
+  check('the chart has a month of days to draw from', pomora.statsPayload().days.length === 30);
+
   check('csv export builds', store.exportCsv().split('\n')[0].startsWith('started_at'));
 
   // --- the normal icon comes back when nothing runs -------------------------

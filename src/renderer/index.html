@@ -153,8 +153,26 @@
           <p class="hint" id="m-hint">Back-dated entries land on the day you pick and are marked <em>manual</em> in the log, so you can tell them from timed sessions — and remove them again.</p>
         </form>
 
-        <h2 class="section-title">Last 14 days</h2>
-        <div id="chart" class="chart"></div>
+        <div class="section-head">
+          <h2 class="section-title" id="chart-title">Last 14 days</h2>
+          <div class="seg" id="chart-metric" role="group" aria-label="What the bars show">
+            <button class="seg__btn is-active" data-metric="hours" type="button">Hours focused</button>
+            <button class="seg__btn" data-metric="pomodoros" type="button">Pomodoros</button>
+          </div>
+          <div class="seg" id="chart-range" role="group" aria-label="How many days">
+            <button class="seg__btn" data-range="7" type="button">7d</button>
+            <button class="seg__btn is-active" data-range="14" type="button">14d</button>
+            <button class="seg__btn" data-range="30" type="button">30d</button>
+          </div>
+        </div>
+        <figure class="chart" id="chart">
+          <figcaption class="chart__cap" id="chart-cap">Hours focused per day</figcaption>
+          <div class="chart__axis" id="chart-axis"></div>
+          <div class="chart__plot" id="chart-plot"></div>
+          <div class="chart__corner"></div>
+          <div class="chart__x" id="chart-x"></div>
+        </figure>
+        <p class="hint">Click a bar to see that day in full.</p>
 
         <h2 class="section-title">Today's sessions</h2>
         <div class="table-wrap">
@@ -164,6 +182,35 @@
             </thead>
             <tbody id="session-rows"></tbody>
           </table>
+        </div>
+
+        <!-- one day, in full — opened by clicking a bar in the chart -->
+        <div class="modal hidden" id="day-modal" role="dialog" aria-modal="true" aria-labelledby="day-title">
+          <div class="modal__backdrop" data-close="1"></div>
+          <div class="modal__card">
+            <header class="modal__head">
+              <div>
+                <h3 id="day-title">Day</h3>
+                <p class="modal__sub" id="day-sub"></p>
+              </div>
+              <button class="modal__close" id="day-close" type="button" aria-label="Close">✕</button>
+            </header>
+            <div class="stat-grid stat-grid--day" id="day-tiles"></div>
+            <div id="day-tasks"></div>
+            <h4 class="modal__h4" id="day-sessions-title">Sessions</h4>
+            <div class="table-wrap table-wrap--day">
+              <table class="table">
+                <thead>
+                  <tr><th>Start</th><th>Type</th><th>Length</th><th>Idle removed</th><th>Outcome</th><th></th></tr>
+                </thead>
+                <tbody id="day-rows"></tbody>
+              </table>
+            </div>
+            <div class="modal__foot">
+              <button class="btn btn--quiet" id="day-prev" type="button">← Previous day</button>
+              <button class="btn btn--quiet" id="day-next" type="button">Next day →</button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -292,6 +339,7 @@
     </main>
 
     <audio id="audio" preload="auto"></audio>
+    <script src="chart.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

@@ -4,6 +4,21 @@ All notable changes to Ferna Pomoro are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] — 2026-09-23
+
+### Added
+- **A labelled vertical axis on the history chart.** Ticks and gridlines, rounded
+  up to a readable top (quarter, half and whole hours — never 2.5 of an hour),
+  with the tallest bar always inside the plot. The axis maths is unit-tested.
+- **Hours focused / Pomodoros** switch, and a **7 / 14 / 30 day** range.
+- Bars are labelled with weekday and date; today's bar is outlined.
+- **Click a bar to open that day in full**: when the day started and ended, focus
+  time, pomodoros, focus sessions and their average length, breaks taken (with
+  long ones counted separately) and time spent on them, idle removed,
+  interruptions, overtime, time added by hand, focus time by task, and every
+  session of that day with its outcome — each removable, unwinding the totals.
+  **← Previous / Next day →** walk through the history; Esc closes it.
+
 ## [1.4.0] — 2026-09-22
 
 ### Added

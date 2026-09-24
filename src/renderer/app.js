@@ -225,12 +225,15 @@ function renderManualForm(stats) {
   }
 }
 
+/** "2h 15m" / "45m" — the same wording the rest of the app uses. */
+function fmtMs(ms) {
+  const m = Math.round((ms || 0) / 60000);
+  return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
+}
+
 function renderStats(stats) {
   renderManualForm(stats);
-  const fmt = (ms) => {
-    const m = Math.round(ms / 60000);
-    return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
-  };
+  const fmt = fmtMs;
   $('#stat-focus').textContent = fmt(stats.today.focusMs);
   $('#stat-pom').textContent = stats.today.pomodoros;
   $('#stat-idle').textContent = fmt(stats.today.idleRemovedMs);
@@ -240,36 +243,240 @@ function renderStats(stats) {
   const week = stats.days.slice(-7).reduce((a, d) => a + d.focusMs, 0);
   $('#stat-week').textContent = fmt(week);
 
-  const chart = $('#chart');
-  chart.innerHTML = '';
-  const max = Math.max(30 * 60000, ...stats.days.map((d) => d.focusMs));
-  stats.days.forEach((d) => {
-    const bar = document.createElement('div');
-    bar.className = 'bar';
-    const fill = document.createElement('div');
-    fill.className = 'bar__fill' + (d.focusMs === 0 ? ' is-empty' : '');
-    fill.style.height = `${Math.max(2, (d.focusMs / max) * 100)}%`;
-    fill.title = `${d.day}: ${fmt(d.focusMs)} · ${d.pomodoros} pomodoros`;
+  renderChart(stats.days);
+  fillSessionRows($('#session-rows'), stats.sessions, 'Nothing logged today yet.');
+  if (openDayKey) refreshDayModal();
+}
+
+// ------------------------------------------------------------------- chart
+
+let chartMetric = 'hours';
+let chartRange = 14;
+let chartDays = [];
+
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function dayDate(key) {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function renderChart(days) {
+  chartDays = days || [];
+  const shown = chartDays.slice(-chartRange);
+  const { axis, bars } = window.PomoraChart.buildChart(shown, chartMetric);
+  const isHours = chartMetric === 'hours';
+
+  $('#chart-title').textContent = `Last ${chartRange} days`;
+  $('#chart-cap').textContent = isHours ? 'Hours focused per day' : 'Pomodoros completed per day';
+
+  // Vertical axis: a label per tick, placed at its own height.
+  const axisEl = $('#chart-axis');
+  const plot = $('#chart-plot');
+  axisEl.innerHTML = '';
+  plot.innerHTML = '';
+  axis.ticks.forEach((t) => {
+    const pct = (t / axis.top) * 100;
     const label = document.createElement('span');
-    label.className = 'bar__label';
-    label.textContent = d.day.slice(8);
-    bar.append(fill, label);
-    chart.appendChild(bar);
+    label.className = 'chart__tick';
+    label.style.bottom = `${pct}%`;
+    label.textContent = window.PomoraChart.tickLabel(t, chartMetric);
+    axisEl.appendChild(label);
+
+    const line = document.createElement('div');
+    line.className = 'chart__grid' + (t === 0 ? ' is-zero' : '');
+    line.style.bottom = `${pct}%`;
+    plot.appendChild(line);
   });
 
-  const rows = $('#session-rows');
-  rows.innerHTML = '';
-  if (!stats.sessions.length) {
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const xs = $('#chart-x');
+  xs.innerHTML = '';
+
+  bars.forEach((b) => {
+    const date = dayDate(b.day);
+    const valueText = isHours
+      ? fmtMs(b.value * 3600000)
+      : `${b.value} pomodoro${b.value === 1 ? '' : 's'}`;
+    const dayText = date.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
+
+    const bar = document.createElement('button');
+    bar.type = 'button';
+    bar.className = 'bar' + (b.empty ? ' is-empty' : '') + (b.day === todayKey ? ' is-today' : '');
+    bar.style.setProperty('--h', `${b.percent}%`);
+    bar.title = `${dayText}: ${valueText} — click for the full day`;
+    bar.setAttribute('aria-label', `${dayText}, ${valueText}`);
+    bar.addEventListener('click', () => openDay(b.day));
+    const fill = document.createElement('span');
+    fill.className = 'bar__fill';
+    bar.appendChild(fill);
+    plot.appendChild(bar);
+
+    const label = document.createElement('span');
+    label.className = 'chart__xlabel' + (b.day === todayKey ? ' is-today' : '');
+    // Wide ranges get numbers only; narrow ones can carry the weekday too.
+    label.textContent =
+      chartRange <= 14 ? `${DAY_NAMES[date.getDay()]}\n${date.getDate()}` : String(date.getDate());
+    xs.appendChild(label);
+  });
+}
+
+$$('#chart-metric .seg__btn').forEach((b) =>
+  b.addEventListener('click', () => {
+    chartMetric = b.dataset.metric;
+    $$('#chart-metric .seg__btn').forEach((x) => x.classList.toggle('is-active', x === b));
+    renderChart(chartDays);
+  })
+);
+
+$$('#chart-range .seg__btn').forEach((b) =>
+  b.addEventListener('click', () => {
+    chartRange = Number(b.dataset.range);
+    $$('#chart-range .seg__btn').forEach((x) => x.classList.toggle('is-active', x === b));
+    renderChart(chartDays);
+  })
+);
+
+// --------------------------------------------------------- one day, in full
+
+let openDayKey = null;
+
+async function openDay(key) {
+  openDayKey = key;
+  const detail = await window.pomora.send('stats:day', { day: key });
+  if (!detail) return;
+  renderDayModal(detail);
+  $('#day-modal').classList.remove('hidden');
+  $('#day-close').focus();
+}
+
+async function refreshDayModal() {
+  const detail = await window.pomora.send('stats:day', { day: openDayKey });
+  if (detail && openDayKey) renderDayModal(detail);
+}
+
+function closeDay() {
+  openDayKey = null;
+  $('#day-modal').classList.add('hidden');
+}
+
+function tile(value, label, muted = false) {
+  const el = document.createElement('div');
+  el.className = 'stat' + (muted ? ' stat--muted' : '');
+  el.innerHTML = `<span class="stat__v"></span><span class="stat__l"></span>`;
+  el.firstChild.textContent = value;
+  el.lastChild.textContent = label;
+  return el;
+}
+
+function renderDayModal(d) {
+  const date = dayDate(d.day);
+  const clock = (ms) =>
+    new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  $('#day-title').textContent = date.toLocaleDateString([], {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+  $('#day-sub').textContent = d.firstAt
+    ? `${d.isToday ? 'Today · ' : ''}${clock(d.firstAt)} – ${clock(d.lastAt)} · ${fmtMs(
+        d.spanMs
+      )} from first session to last`
+    : d.isToday
+      ? 'Today · nothing recorded yet'
+      : 'Nothing was recorded on this day';
+
+  const t = d.totals;
+  const c = d.counts;
+  const tiles = $('#day-tiles');
+  tiles.innerHTML = '';
+  [
+    [fmtMs(t.focusMs), 'focused'],
+    [String(t.pomodoros), 'pomodoros'],
+    [String(c.focusSessions), 'focus sessions'],
+    [fmtMs(d.averageFocusMs), 'average session'],
+    [String(c.breaks), `breaks taken${c.longBreaks ? ` (${c.longBreaks} long)` : ''}`],
+    [fmtMs(t.breakMs), 'on breaks'],
+    [fmtMs(t.idleRemovedMs), 'idle removed'],
+    [String(t.interruptions), 'interruptions'],
+    [fmtMs(t.overtimeMs), 'overtime'],
+    [fmtMs(t.manualMs), 'added by hand'],
+  ].forEach(([v, l]) => tiles.appendChild(tile(v, l, v === '0' || v === '0m')));
+
+  // Where the focus time went.
+  const tasksEl = $('#day-tasks');
+  tasksEl.innerHTML = '';
+  if (d.tasks.length) {
+    const h = document.createElement('h4');
+    h.className = 'modal__h4';
+    h.textContent = 'Focus time by task';
+    tasksEl.appendChild(h);
+    const list = document.createElement('ul');
+    list.className = 'daybars';
+    const top = Math.max(...d.tasks.map((x) => x.focusMs));
+    d.tasks.slice(0, 6).forEach((task) => {
+      const li = document.createElement('li');
+      const name = document.createElement('span');
+      name.className = 'daybars__name';
+      name.textContent = task.title;
+      name.title = task.title;
+      const track = document.createElement('span');
+      track.className = 'daybars__track';
+      const fill = document.createElement('span');
+      fill.className = 'daybars__fill';
+      fill.style.width = `${Math.max(3, (task.focusMs / top) * 100)}%`;
+      track.appendChild(fill);
+      const val = document.createElement('span');
+      val.className = 'daybars__val';
+      val.textContent = fmtMs(task.focusMs);
+      li.append(name, track, val);
+      list.appendChild(li);
+    });
+    tasksEl.appendChild(list);
+  }
+
+  $('#day-sessions-title').textContent = `Sessions (${d.sessions.length})`;
+  fillSessionRows($('#day-rows'), d.sessions, 'No sessions on this day.');
+}
+
+$('#day-close').addEventListener('click', closeDay);
+$('#day-modal').addEventListener('click', (e) => {
+  if (e.target.dataset.close) closeDay();
+});
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && openDayKey) closeDay();
+});
+$('#day-prev').addEventListener('click', () => stepDay(-1));
+$('#day-next').addEventListener('click', () => stepDay(1));
+
+function stepDay(delta) {
+  if (!openDayKey) return;
+  const d = dayDate(openDayKey);
+  d.setDate(d.getDate() + delta);
+  const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate()
+  ).padStart(2, '0')}`;
+  if (key > new Date().toISOString().slice(0, 10)) return; // no future days
+  openDay(key);
+}
+
+// ------------------------------------------------------------ session rows
+
+function fillSessionRows(tbody, sessions, emptyText) {
+  tbody.innerHTML = '';
+  if (!sessions.length) {
     const tr = document.createElement('tr');
     const td = document.createElement('td');
     td.colSpan = 6;
-    td.textContent = 'Nothing logged today yet.';
+    td.textContent = emptyText;
     td.style.color = 'var(--muted)';
     tr.appendChild(td);
-    rows.appendChild(tr);
+    tbody.appendChild(tr);
     return;
   }
-  stats.sessions.forEach((s) => {
+  sessions.forEach((s) => {
     const tr = document.createElement('tr');
     const time = new Date(s.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const isWork = s.phase === 'work';
@@ -302,7 +509,7 @@ function renderStats(stats) {
     btn.addEventListener('click', () => window.pomora.send('session:delete', { id: s.id }));
     del.appendChild(btn);
     tr.appendChild(del);
-    rows.appendChild(tr);
+    tbody.appendChild(tr);
   });
 }
 
@@ -518,6 +725,6 @@ window.pomora.on('navigate', ({ tab }) => showTab(tab));
   renderTasks((await window.pomora.send('task:list')) || []);
   renderStats(await window.pomora.send('stats:get'));
   renderTimer(await window.pomora.send('state:get'));
-  $('#version').textContent = `Ferna Pomoro 1.4.0 · Electron ${window.pomora.version}`;
+  $('#version').textContent = `Ferna Pomoro 1.5.0 · Electron ${window.pomora.version}`;
   audio.remove();
 })();

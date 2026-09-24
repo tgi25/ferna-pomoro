@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { DEFAULT_SETTINGS } = require('../shared/constants');
+const { DEFAULT_SETTINGS, PHASE } = require('../shared/constants');
 const { dayKey } = require('../shared/format');
 
 /**
@@ -340,6 +340,69 @@ class Store {
 
   sessionsForDay(key = dayKey()) {
     return this.data.sessions.filter((s) => dayKey(s.endedAt) === key);
+  }
+
+  /**
+   * Everything the statistics pane shows for one day: the stored aggregates
+   * plus what can only be worked out from that day's sessions — how many
+   * breaks were actually taken, when the day started and ended, and where the
+   * focus time went.
+   */
+  dayDetail(key = dayKey()) {
+    const totals = { ...Store.emptyDay(), ...(this.data.days[key] || {}) };
+    const sessions = this.sessionsForDay(key);
+    const perTask = new Map();
+    const counts = {
+      focusSessions: 0, // timed work sessions, completed or not
+      completedFocus: 0,
+      breaks: 0,
+      shortBreaks: 0,
+      longBreaks: 0,
+      manualEntries: 0,
+      endedWhileAway: 0,
+    };
+    let longestFocusMs = 0;
+    let firstAt = null;
+    let lastAt = null;
+
+    for (const s of sessions) {
+      if (s.startedAt && (firstAt === null || s.startedAt < firstAt)) firstAt = s.startedAt;
+      if (s.endedAt && (lastAt === null || s.endedAt > lastAt)) lastAt = s.endedAt;
+
+      if (s.type === 'manual') counts.manualEntries += 1;
+      if (s.phase === PHASE.WORK || s.type === 'manual' || s.type === 'overtime') {
+        if (s.type !== 'overtime') counts.focusSessions += 1;
+        if (s.completed && s.type !== 'manual') counts.completedFocus += 1;
+        if (s.reason === 'idle-cut') counts.endedWhileAway += 1;
+        longestFocusMs = Math.max(longestFocusMs, s.workedMs || 0);
+        if (s.taskId) perTask.set(s.taskId, (perTask.get(s.taskId) || 0) + (s.workedMs || 0));
+      } else if (s.phase === PHASE.SHORT_BREAK || s.phase === PHASE.LONG_BREAK) {
+        counts.breaks += 1;
+        if (s.phase === PHASE.LONG_BREAK) counts.longBreaks += 1;
+        else counts.shortBreaks += 1;
+      }
+    }
+
+    const tasks = [...perTask.entries()]
+      .map(([id, focusMs]) => {
+        const task = this.data.tasks.find((t) => t.id === id);
+        return { id, title: task ? task.title : 'Deleted task', focusMs };
+      })
+      .sort((a, b) => b.focusMs - a.focusMs);
+
+    return {
+      day: key,
+      isToday: key === dayKey(),
+      totals,
+      counts,
+      longestFocusMs,
+      averageFocusMs: counts.focusSessions ? Math.round(totals.focusMs / counts.focusSessions) : 0,
+      firstAt,
+      lastAt,
+      spanMs: firstAt !== null && lastAt !== null ? Math.max(0, lastAt - firstAt) : 0,
+      tasks,
+      sessions: sessions.slice().sort((a, b) => b.startedAt - a.startedAt),
+    };
   }
 
   exportCsv() {

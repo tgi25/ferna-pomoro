@@ -16,12 +16,13 @@
 
 </div>
 
-> **New in 1.4.0:** the minutes left now appear large on the taskbar button itself,
-> in a cat-face icon, and the tray icon takes the same shape.
-> [See the icons](#the-taskbar-tells-you-how-long-you-have-worked) · [update now](#updating-to-a-new-version)
+> **New in 1.5.0:** the history chart now has a labelled vertical axis, switches
+> between hours and pomodoros, and opens any day in full when you click its bar.
+> [See the statistics](#statistics) · [update now](#updating-to-a-new-version)
 >
-> **1.3.0** added a *"Time to start work"* window after switching on and a
-> *"Session complete"* window at the end of every session ([reminder windows](#reminder-windows)).
+> **1.4.0** put the minutes left on the taskbar button in a
+> [cat-face icon](#the-taskbar-tells-you-how-long-you-have-worked); **1.3.0** added the
+> [reminder windows](#reminder-windows).
 
 ---
 
@@ -54,7 +55,7 @@ installing anything. Windows 10 or 11, 64-bit.
 Every release also carries `SHA256SUMS.txt`. To check a download:
 
 ```powershell
-Get-FileHash .\Ferna-Pomoro-Setup-1.4.0.exe -Algorithm SHA256
+Get-FileHash .\Ferna-Pomoro-Setup-1.5.0.exe -Algorithm SHA256
 ```
 
 The installer is not code-signed — a certificate costs more than this project
@@ -215,6 +216,39 @@ session runs down.
 both icons between **Cat face** and the older **Circle**. For a bigger clock
 still, the mini timer (`Ctrl+Alt+M`) floats on top of other windows.
 
+### Statistics
+
+Today's figures across the top — focus time, pomodoros, idle removed,
+interruptions, the last seven days, the day streak and time added by hand — then
+the history chart:
+
+![The history chart](docs/shots/18-chart.png)
+
+The **vertical axis is labelled**, with gridlines, so a bar's height is a number
+you can read rather than a shape you have to guess at. The axis rounds up to a
+sensible top (whole or half hours, never 2.5 of an hour) and keeps the tallest
+bar inside the plot. Two switches sit above it: **Hours focused** or
+**Pomodoros**, and **7 / 14 / 30 days**. Today's bar is outlined, and each bar is
+labelled with its weekday and date.
+
+**Click any bar and that day opens in full:**
+
+![One day in full](docs/shots/17-day-detail.png)
+
+- When the day started and ended, and how long it ran from the first session to
+  the last.
+- Focus time, pomodoros, how many focus sessions, and the average session.
+- **Breaks actually taken** (and how many were long ones), and the time spent on
+  them.
+- Idle time removed, interruptions, overtime, and time added by hand.
+- **Focus time by task**, as a small bar per task.
+- Every session of that day, with its outcome — including the ones that ended
+  while you were away — and a ✕ to remove any entry, which unwinds the day's
+  totals with it.
+
+**← Previous day** and **Next day →** walk through the history without going back
+to the chart; Esc closes the popup. Everything here is also in the **CSV export**.
+
 ### The break window, on your terms
 
 The break window covers the screen so a break is actually a break. Three
@@ -311,10 +345,7 @@ session automatically* is on, there is nothing to wait for.
 
 - **Tasks** with estimated pomodoros; the selected task collects the focus time
   and pomodoro count of every session you run against it.
-- **Statistics**: today's focus time, pomodoros, idle removed and interruptions;
-  a 14-day chart; a day-streak counter; a log of today's sessions showing
-  exactly which ones ended while you were away — and **CSV export** of the whole
-  history.
+- **Statistics**: see below.
 - **Full-screen break window** across every monitor, with a rotating suggestion
   (*look 20 feet away for 20 seconds*) — see below.
 - **Mini timer**: a small always-on-top clock you can park in a corner.
@@ -331,15 +362,15 @@ session automatically* is on, there is nothing to wait for.
 ```bash
 npm install
 npm start          # run the app
-npm test           # 56 unit tests: engine, idle watcher, store, reminders, icons
+npm test           # 65 unit tests: engine, idle watcher, store, reminders, icons, chart
 npm run dist       # build the Windows installer (needs Wine on Linux)
 python3 tools/make-assets.py   # regenerate sounds and icons
 ```
 
 `npx electron . --selftest` drives the whole app inside Electron — windows, the
 canvas-drawn taskbar images, the full idle freeze/return path, the break-window
-dismissal, the three reminder windows, the live icons, manual time entry and
-the IPC surface — 81 checks, ending in a
+dismissal, the three reminder windows, the live icons, manual time entry, the
+day-detail query and the IPC surface — 84 checks, ending in a
 pass/fail summary. `--screenshots` writes `docs/shots/`.
 
 ### How it is laid out
@@ -360,6 +391,7 @@ src/
   preload/     the only bridge to the UI (contextIsolation, sandboxed)
   renderer/    timer, tasks, stats, settings, mini, break curtain, idle prompt,
                "time to start" reminder, "session complete" window
+               chart.js — axis maths for the history chart, unit-tested
 ```
 
 Two design decisions carry most of the reliability:
@@ -405,6 +437,12 @@ the taskbar progress bar is what Windows has always offered and few apps use.
 MIT licensed. Built for TGI Fernando.
 
 ## Changelog
+
+**1.5.0**
+- The history chart has a labelled vertical axis with gridlines, and switches
+  between hours focused and pomodoros over 7, 14 or 30 days.
+- Clicking a bar opens that day in full: focus time, sessions, breaks taken,
+  idle removed, overtime, time by task and the day's session log.
 
 **1.4.0**
 - The taskbar button's own icon shows the minutes left, in large digits on a cat
