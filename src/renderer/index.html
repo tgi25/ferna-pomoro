@@ -174,8 +174,10 @@
         </figure>
         <p class="hint">Click a bar to see that day in full.</p>
 
-        <h2 class="section-title">Today's sessions</h2>
-        <div class="table-wrap">
+        <div class="section-head">
+          <h2 class="section-title" id="today-title">Today's sessions</h2>
+        </div>
+        <div class="table-wrap table-wrap--scroll">
           <table class="table">
             <thead>
               <tr><th>Start</th><th>Type</th><th>Length</th><th>Idle removed</th><th>Outcome</th><th></th></tr>
@@ -322,8 +324,54 @@
             <p class="hint">Windows keeps tray icons at 16 px, so the taskbar button (24–32 px) shows the time largest. While it does, the corner badge steps aside.</p>
             <label class="row"><span>Minimise to tray</span><input type="checkbox" data-setting="minimizeToTray" /></label>
             <label class="row"><span>Close to tray</span><input type="checkbox" data-setting="closeToTray" /></label>
-            <label class="row"><span>Mini timer stays on top</span><input type="checkbox" data-setting="alwaysOnTopMini" /></label>
             <label class="row"><span>Start Ferna Pomoro when Windows starts</span><input type="checkbox" data-setting="launchOnStartup" /></label>
+          </fieldset>
+
+          <fieldset class="card">
+            <legend>Mini timer</legend>
+            <label class="row">
+              <span>Size</span>
+              <select data-setting="miniSize">
+                <option value="small">Small</option>
+                <option value="medium">Medium</option>
+                <option value="large">Large</option>
+              </select>
+            </label>
+            <label class="row"><span>Opacity</span><input type="range" min="30" max="100" step="5" data-setting="miniOpacityPct" /><em id="mini-opacity-val">100%</em></label>
+            <label class="row"><span>Show the task I am working on</span><input type="checkbox" data-setting="miniShowTask" /></label>
+            <label class="row"><span>Show the time of day</span><input type="checkbox" data-setting="miniShowClock" /></label>
+            <label class="row"><span>Keep it on top of other windows</span><input type="checkbox" data-setting="alwaysOnTopMini" /></label>
+            <label class="row"><span>Give it a taskbar button</span><input type="checkbox" data-setting="miniInTaskbar" /></label>
+            <p class="hint">With a taskbar button it behaves like an ordinary window: a – appears on it, so you can minimise it out of the way instead of having it float over your work. Opacity applies while it stays on top.</p>
+            <div class="row row--buttons">
+              <span>Preview</span>
+              <span class="btn-group"><button class="btn btn--sm" id="btn-mini-show" type="button">Show the mini timer</button></span>
+            </div>
+          </fieldset>
+
+          <fieldset class="card">
+            <legend>Your data</legend>
+            <p class="hint">
+              Everything lives in one file on this computer. Installing a new version leaves it
+              alone, so an update never loses anything — but a new machine, a reinstalled Windows
+              or a wiped profile would. A backup holds your settings, tasks, session log and daily
+              totals.
+            </p>
+            <div class="row row--buttons">
+              <span>Backup</span>
+              <span class="btn-group">
+                <button class="btn btn--sm" id="btn-backup" type="button">Back up to a file…</button>
+                <button class="btn btn--sm" id="btn-restore" type="button">Restore from a backup…</button>
+              </span>
+            </div>
+            <div class="row row--buttons">
+              <span>Other</span>
+              <span class="btn-group">
+                <button class="btn btn--sm" id="btn-export-2" type="button">Export CSV</button>
+                <button class="btn btn--sm" id="btn-open-folder-2" type="button">Open the data folder</button>
+              </span>
+            </div>
+            <p class="hint" id="data-result"></p>
           </fieldset>
 
           <fieldset class="card">

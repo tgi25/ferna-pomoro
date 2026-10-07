@@ -244,6 +244,9 @@ function renderStats(stats) {
   $('#stat-week').textContent = fmt(week);
 
   renderChart(stats.days);
+  $('#today-title').textContent = stats.sessions.length
+    ? `Today's sessions (${stats.sessions.length})`
+    : "Today's sessions";
   fillSessionRows($('#session-rows'), stats.sessions, 'Nothing logged today yet.');
   if (openDayKey) refreshDayModal();
 }
@@ -577,6 +580,7 @@ function toForm(s) {
     notStartedAfterMin: Math.round((s.notStartedAfterMs || 5 * MIN) / MIN),
     startupReminderAfterMin: Math.round((s.startupReminderAfterMs || 5 * MIN) / MIN),
     volumePct: Math.round((s.volume || 0) * 100),
+    miniOpacityPct: Math.round((s.miniOpacity ?? 1) * 100),
   };
 }
 
@@ -596,6 +600,8 @@ function fromField(key, value) {
       return { startupReminderAfterMs: Math.min(120, Math.max(1, value || 1)) * MIN };
     case 'volumePct':
       return { volume: Math.min(1, Math.max(0, value / 100)) };
+    case 'miniOpacityPct':
+      return { miniOpacity: Math.min(1, Math.max(0.3, value / 100)) };
     default:
       return { [key]: value };
   }
@@ -604,6 +610,8 @@ function fromField(key, value) {
 function renderSettings(s) {
   settings = s;
   renderReminderHint(s);
+  const op = $('#mini-opacity-val');
+  if (op) op.textContent = `${Math.round((s.miniOpacity ?? 1) * 100)}%`;
   $$('[data-setting="notStartedAfterMin"]').forEach((el) => (el.disabled = !s.notStartedReminder));
   $$('[data-setting="startupReminderAfterMin"]').forEach((el) => (el.disabled = !s.startupReminder));
   const form = toForm(s);
@@ -677,6 +685,55 @@ $$('[data-preview]').forEach((b) =>
   })
 );
 
+$('#btn-mini-show').addEventListener('click', (e) => {
+  e.preventDefault();
+  window.pomora.send('window:mini', { show: true });
+});
+
+// ------------------------------------------------------------ backup files
+
+function dataResult(text) {
+  const el = $('#data-result');
+  if (el) el.textContent = text;
+}
+
+$('#btn-backup').addEventListener('click', async (e) => {
+  e.preventDefault();
+  dataResult('Choose where to keep the backup…');
+  const res = await window.pomora.send('data:backup');
+  if (!res || res.canceled) return dataResult('');
+  if (!res.ok) return dataResult(`Backup failed: ${res.error}`);
+  dataResult(`Backed up ${res.days} days, ${res.sessions} sessions and ${res.tasks} tasks to ${res.path}`);
+});
+
+$('#btn-restore').addEventListener('click', async (e) => {
+  e.preventDefault();
+  dataResult('Choose a backup file…');
+  const res = await window.pomora.send('data:restore');
+  if (!res || res.canceled) return dataResult('');
+  if (!res.ok) return dataResult(res.error || 'That file could not be restored.');
+  if (res.mode === 'replace') {
+    dataResult(
+      `Restored everything from the backup: ${res.daysAdded} days, ${res.sessionsAdded} sessions, ${res.tasksAdded} tasks` +
+        `${res.settingsRestored ? ', and your settings' : ''}.`
+    );
+  } else {
+    dataResult(
+      `Merged: ${res.daysAdded} new days, ${res.daysReplaced} days updated, ${res.daysKept} left as they were, ` +
+        `${res.sessionsAdded} sessions and ${res.tasksAdded} tasks added. Your settings were not touched.`
+    );
+  }
+});
+
+$('#btn-export-2').addEventListener('click', (e) => {
+  e.preventDefault();
+  $('#btn-export').click();
+});
+$('#btn-open-folder-2').addEventListener('click', (e) => {
+  e.preventDefault();
+  window.pomora.send('data:open-folder');
+});
+
 $('#btn-reset-settings').addEventListener('click', () => window.pomora.send('settings:reset'));
 $$('[data-sound]').forEach((b) =>
   b.addEventListener('click', (e) => {
@@ -725,6 +782,6 @@ window.pomora.on('navigate', ({ tab }) => showTab(tab));
   renderTasks((await window.pomora.send('task:list')) || []);
   renderStats(await window.pomora.send('stats:get'));
   renderTimer(await window.pomora.send('state:get'));
-  $('#version').textContent = `Ferna Pomoro 1.5.0 · Electron ${window.pomora.version}`;
+  $('#version').textContent = `Ferna Pomoro 1.6.0 · Electron ${window.pomora.version}`;
   audio.remove();
 })();

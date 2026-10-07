@@ -926,6 +926,48 @@ select:focus {
   overflow: hidden;
 }
 
+/* Long lists scroll inside their box, with the header pinned, instead of
+   pushing the rest of the page down. */
+.table-wrap--scroll {
+  max-height: 330px;
+  overflow-y: auto;
+}
+
+.table-wrap--scroll .table th,
+.table-wrap--day .table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  box-shadow: inset 0 -1px 0 var(--line);
+}
+
+/* A scrollbar you can see on a dark background, and grab. */
+.table-wrap--scroll::-webkit-scrollbar,
+.table-wrap--day::-webkit-scrollbar,
+.modal__card::-webkit-scrollbar {
+  width: 11px;
+}
+
+.table-wrap--scroll::-webkit-scrollbar-track,
+.table-wrap--day::-webkit-scrollbar-track,
+.modal__card::-webkit-scrollbar-track {
+  background: var(--bg-2);
+}
+
+.table-wrap--scroll::-webkit-scrollbar-thumb,
+.table-wrap--day::-webkit-scrollbar-thumb,
+.modal__card::-webkit-scrollbar-thumb {
+  background: #3a4252;
+  border: 2px solid var(--bg-2);
+  border-radius: 6px;
+}
+
+.table-wrap--scroll::-webkit-scrollbar-thumb:hover,
+.table-wrap--day::-webkit-scrollbar-thumb:hover,
+.modal__card::-webkit-scrollbar-thumb:hover {
+  background: #4c5569;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;

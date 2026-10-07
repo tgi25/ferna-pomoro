@@ -24,6 +24,7 @@ const { Notifier } = require('./notifier');
 const { ImageFactory } = require('./image-factory');
 const { NotStartedNudge } = require('./nudge');
 const { TaskbarIndicator, COLORS, PHASE_LABEL, iconLabel } = require('./taskbar');
+const { miniWindowSize, miniOpacity } = require('../shared/mini');
 const windows = require('./windows');
 
 const APP_ID = 'lk.ac.sjp.ferna-pomoro';
@@ -1224,6 +1225,10 @@ class PomoraApp {
       case 'data:open-folder':
         shell.openPath(app.getPath('userData'));
         return true;
+      case 'data:backup':
+        return this.backupToFile(payload.path);
+      case 'data:restore':
+        return this.restoreFromFile(payload.path, payload.mode);
 
       // idle --------------------------------------------------------------
       case 'idle:resolve':
@@ -1241,6 +1246,9 @@ class PomoraApp {
         return true;
       case 'window:mini':
         this.toggleMini(payload.show);
+        return true;
+      case 'window:minimise-mini':
+        if (this.mini && !this.mini.isDestroyed()) this.mini.minimize();
         return true;
       case 'window:close-mini':
         if (this.mini && !this.mini.isDestroyed()) this.mini.hide();
@@ -1329,9 +1337,7 @@ class PomoraApp {
     this.watcher.setEnabled(settings.idleDetection);
     if (this.taskbar) this.taskbar.setSettings(settings);
     this.lastTrayKey = null;
-    if (this.mini && !this.mini.isDestroyed()) {
-      this.mini.setAlwaysOnTop(!!settings.alwaysOnTopMini, 'screen-saver');
-    }
+    this.applyMiniSettings(settings);
     if ('launchOnStartup' in patch && process.platform === 'win32') {
       app.setLoginItemSettings({
         openAtLogin: !!settings.launchOnStartup,
@@ -1341,6 +1347,103 @@ class PomoraApp {
     this.registerShortcuts();
     this.broadcastAll();
     return settings;
+  }
+
+  /**
+   * Write everything — settings, tasks, sessions, daily totals — to one JSON
+   * file the user keeps. Installing a new version never touches the app-data
+   * folder, so this is for a new machine, a rebuilt one, or peace of mind.
+   *
+   * `toPath` skips the file dialog; the self-test uses it.
+   */
+  backupToFile(toPath = null) {
+    const data = this.store.exportBackup({ appVersion: app.getVersion() });
+    const file =
+      toPath ||
+      dialog.showSaveDialogSync(this.win, {
+        title: 'Back up Ferna Pomoro',
+        defaultPath: path.join(app.getPath('documents'), `ferna-pomoro-backup-${dayKey()}.json`),
+        filters: [{ name: 'Ferna Pomoro backup', extensions: ['json'] }],
+      });
+    if (!file) return { canceled: true };
+    try {
+      fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf8');
+      const info = Store.describeBackup(data);
+      return { ok: true, path: file, days: info.days, sessions: info.sessions, tasks: info.tasks };
+    } catch (err) {
+      dialog.showErrorBox('Backup failed', err.message);
+      return { ok: false, error: err.message };
+    }
+  }
+
+  /**
+   * Read a backup and put it back, after telling the user exactly what is in
+   * the file and asking whether to replace everything or merge it in.
+   */
+  restoreFromFile(fromPath = null, forcedMode = null) {
+    // Called with a path and a mode (the self-test, a future command line),
+    // nothing may stop to ask: a modal dialog with nobody at the keyboard
+    // hangs the app.
+    const interactive = !forcedMode;
+    let file = fromPath;
+    if (!file) {
+      const picked = dialog.showOpenDialogSync(this.win, {
+        title: 'Restore from a backup',
+        defaultPath: app.getPath('documents'),
+        filters: [{ name: 'Ferna Pomoro backup', extensions: ['json'] }],
+        properties: ['openFile'],
+      });
+      if (!picked || !picked.length) return { canceled: true };
+      [file] = picked;
+    }
+
+    let data;
+    try {
+      data = JSON.parse(fs.readFileSync(file, 'utf8'));
+    } catch (err) {
+      if (interactive) dialog.showErrorBox('Could not read that file', err.message);
+      return { ok: false, error: `Could not read that file: ${err.message}` };
+    }
+
+    const info = Store.describeBackup(data);
+    if (!info.ok) {
+      if (interactive) dialog.showErrorBox('Not a backup', info.error);
+      return info;
+    }
+
+    let mode = forcedMode;
+    if (!mode) {
+      const hours = Math.round((info.focusMs / (60 * MINUTE)) * 10) / 10;
+      const choice = dialog.showMessageBoxSync(this.win, {
+        type: 'question',
+        buttons: ['Merge with what is here', 'Replace everything', 'Cancel'],
+        defaultId: 0,
+        cancelId: 2,
+        title: 'Restore from a backup',
+        message: 'Restore this backup?',
+        detail:
+          `${path.basename(file)}\n` +
+          `Taken ${info.exportedAt ? new Date(info.exportedAt).toLocaleString() : 'at an unknown time'}` +
+          `${info.appVersion ? ` from version ${info.appVersion}` : ''}.\n\n` +
+          `${info.days} days (${info.firstDay} – ${info.lastDay}), ${hours} hours of focus, ` +
+          `${info.pomodoros} pomodoros, ${info.sessions} sessions, ${info.tasks} tasks.\n\n` +
+          'Merge keeps your current settings and adds anything this machine is missing. ' +
+          'Replace overwrites your settings, tasks and whole history with the file.',
+      });
+      if (choice === 2) return { canceled: true };
+      mode = choice === 1 ? 'replace' : 'merge';
+    }
+
+    const summary = this.store.importBackup(data, { mode });
+    if (!summary.ok) return summary;
+
+    // Put the restored state to work without a restart.
+    this.engine.updateSettings(this.store.settings);
+    this.engine.restoreCycle(this.store.getCycleCount());
+    this.applySettings({});
+    this.registerShortcuts();
+    this.broadcastAll();
+    return { ...summary, path: file, info };
   }
 
   exportCsv() {
@@ -1377,7 +1480,7 @@ class PomoraApp {
     if (wantVisible) {
       if (!this.mini || this.mini.isDestroyed()) {
         this.mini = windows.createMiniWindow({
-          alwaysOnTop: this.store.settings.alwaysOnTopMini,
+          settings: this.store.settings,
           bounds: this.store.data.meta.miniBounds,
         });
         this.mini.on('moved', () => {
@@ -1388,12 +1491,32 @@ class PomoraApp {
           }
         });
       }
+      this.applyMiniSettings();
+      if (this.mini.isMinimized()) this.mini.restore();
       this.mini.show();
       this.mini.webContents.send('pomora:state', this.buildState());
+      this.mini.webContents.send('pomora:settings', this.store.settings);
     } else if (this.mini && !this.mini.isDestroyed()) {
       this.mini.hide();
     }
     this.refreshTrayMenu();
+  }
+
+  /** Size, opacity, on-top and taskbar behaviour of the mini timer. */
+  applyMiniSettings(settings = this.store.settings) {
+    if (!this.mini || this.mini.isDestroyed()) return;
+    const { width, height } = miniWindowSize(settings);
+    const [w, h] = this.mini.getSize();
+    if (w !== width || h !== height) {
+      // A window that is not resizable ignores setSize, so lift the lock for
+      // the moment it takes to resize it.
+      this.mini.setResizable(true);
+      this.mini.setSize(width, height, false);
+      this.mini.setResizable(false);
+    }
+    this.mini.setAlwaysOnTop(!!settings.alwaysOnTopMini, 'screen-saver');
+    this.mini.setSkipTaskbar(!settings.miniInTaskbar);
+    this.mini.setOpacity(miniOpacity(settings));
   }
 
   registerShortcuts() {

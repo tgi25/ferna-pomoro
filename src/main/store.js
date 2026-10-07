@@ -405,6 +405,131 @@ class Store {
     };
   }
 
+  // ----------------------------------------------------------------- backup
+
+  /**
+   * Everything worth keeping, in one plain-JSON object: settings, tasks, the
+   * session log and the daily aggregates. Written to a file the user keeps, so
+   * a new machine (or a reinstall after wiping the app-data folder) can carry
+   * on where the old one left off.
+   */
+  exportBackup({ appVersion = '' } = {}) {
+    return {
+      app: 'ferna-pomoro',
+      kind: 'backup',
+      formatVersion: 1,
+      appVersion,
+      exportedAt: new Date().toISOString(),
+      dataVersion: this.data.version,
+      settings: { ...this.data.settings },
+      tasks: this.data.tasks.map((t) => ({ ...t })),
+      sessions: this.data.sessions.map((x) => ({ ...x })),
+      days: JSON.parse(JSON.stringify(this.data.days)),
+      cycle: { ...this.data.cycle },
+    };
+  }
+
+  /** What a backup file holds, without changing anything. */
+  static describeBackup(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      return { ok: false, error: 'That file is not a Ferna Pomoro backup.' };
+    }
+    const looksRight =
+      data.app === 'ferna-pomoro' ||
+      (data.settings && typeof data.settings === 'object' && data.days && typeof data.days === 'object');
+    if (!looksRight) {
+      return { ok: false, error: 'That file is not a Ferna Pomoro backup.' };
+    }
+    const days = data.days && typeof data.days === 'object' ? Object.keys(data.days) : [];
+    const sessions = Array.isArray(data.sessions) ? data.sessions : [];
+    const tasks = Array.isArray(data.tasks) ? data.tasks : [];
+    const focusMs = days.reduce((sum, k) => sum + ((data.days[k] || {}).focusMs || 0), 0);
+    const pomodoros = days.reduce((sum, k) => sum + ((data.days[k] || {}).pomodoros || 0), 0);
+    return {
+      ok: true,
+      appVersion: data.appVersion || '',
+      exportedAt: data.exportedAt || '',
+      days: days.length,
+      firstDay: days.sort()[0] || '',
+      lastDay: days.sort()[days.length - 1] || '',
+      sessions: sessions.length,
+      tasks: tasks.length,
+      focusMs,
+      pomodoros,
+      hasSettings: !!(data.settings && typeof data.settings === 'object'),
+    };
+  }
+
+  /**
+   * Put a backup back.
+   *
+   *   replace — settings, tasks and the whole history become the file's
+   *   merge   — days, sessions and tasks the machine does not already have are
+   *             added, current settings are left alone. Where a day exists on
+   *             both sides the one with more recorded focus wins, because a
+   *             day cannot be added up twice without inventing time.
+   */
+  importBackup(data, { mode = 'merge' } = {}) {
+    const info = Store.describeBackup(data);
+    if (!info.ok) return info;
+
+    const days = data.days && typeof data.days === 'object' ? data.days : {};
+    const sessions = Array.isArray(data.sessions) ? data.sessions : [];
+    const tasks = Array.isArray(data.tasks) ? data.tasks : [];
+    const summary = { ok: true, mode, daysAdded: 0, daysReplaced: 0, daysKept: 0, sessionsAdded: 0, tasksAdded: 0, settingsRestored: false };
+
+    if (mode === 'replace') {
+      summary.daysAdded = Object.keys(days).length;
+      summary.sessionsAdded = sessions.length;
+      summary.tasksAdded = tasks.length;
+      this.data.days = JSON.parse(JSON.stringify(days));
+      this.data.sessions = sessions.map((x) => ({ ...x }));
+      this.data.tasks = tasks.map((t) => ({ ...t }));
+      if (data.cycle && typeof data.cycle === 'object') this.data.cycle = { ...data.cycle };
+      if (info.hasSettings) {
+        this.data.settings = { ...DEFAULT_SETTINGS, ...data.settings };
+        summary.settingsRestored = true;
+      }
+      this.save({ immediate: true });
+      return summary;
+    }
+
+    for (const [key, day] of Object.entries(days)) {
+      const mine = this.data.days[key];
+      if (!mine) {
+        this.data.days[key] = { ...Store.emptyDay(), ...day };
+        summary.daysAdded += 1;
+      } else if ((day.focusMs || 0) > (mine.focusMs || 0)) {
+        this.data.days[key] = { ...Store.emptyDay(), ...day };
+        summary.daysReplaced += 1;
+      } else {
+        summary.daysKept += 1;
+      }
+    }
+
+    const seen = new Set(this.data.sessions.map((x) => x.id));
+    for (const entry of sessions) {
+      if (!entry || !entry.id || seen.has(entry.id)) continue;
+      seen.add(entry.id);
+      this.data.sessions.push({ ...entry });
+      summary.sessionsAdded += 1;
+    }
+    this.data.sessions.sort((a, b) => (a.startedAt || 0) - (b.startedAt || 0));
+
+    const haveTask = new Set(this.data.tasks.map((t) => t.id));
+    const haveTitle = new Set(this.data.tasks.map((t) => String(t.title).toLowerCase()));
+    for (const task of tasks) {
+      if (!task || haveTask.has(task.id) || haveTitle.has(String(task.title).toLowerCase())) continue;
+      haveTask.add(task.id);
+      haveTitle.add(String(task.title).toLowerCase());
+      this.data.tasks.push({ ...task });
+      summary.tasksAdded += 1;
+    }
+
+    this.save({ immediate: true });
+    return summary;
+  }
+
   exportCsv() {
     const head =
       'started_at,ended_at,type,phase,planned_minutes,worked_minutes,idle_removed_minutes,completed,reason,task,note\n';

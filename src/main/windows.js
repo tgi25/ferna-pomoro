@@ -2,6 +2,7 @@
 
 const path = require('path');
 const { BrowserWindow, screen, shell } = require('electron');
+const { miniWindowSize, miniOpacity } = require('../shared/mini');
 
 const RENDERER = path.join(__dirname, '..', 'renderer');
 const PRELOAD = path.join(__dirname, '..', 'preload', 'preload.js');
@@ -46,26 +47,31 @@ function createMainWindow({ bounds }) {
   return win;
 }
 
-/** Compact always-on-top clock the user can park in a corner. */
-function createMiniWindow({ alwaysOnTop = true, bounds } = {}) {
+/** Compact clock the user can park in a corner, or keep in the taskbar. */
+function createMiniWindow({ settings = {}, bounds } = {}) {
   const display = screen.getPrimaryDisplay().workArea;
+  const { width, height } = miniWindowSize(settings);
+  const alwaysOnTop = settings.alwaysOnTopMini !== false;
   const win = new BrowserWindow({
-    width: 260,
-    height: 116,
-    x: bounds?.x ?? display.x + display.width - 288,
+    width,
+    height,
+    x: bounds?.x ?? display.x + display.width - (width + 28),
     y: bounds?.y ?? display.y + 28,
     show: false,
     frame: false,
     resizable: false,
     maximizable: false,
-    minimizable: false,
-    skipTaskbar: true,
+    // A timer that lives in the taskbar should minimise like any other window.
+    minimizable: true,
+    skipTaskbar: !settings.miniInTaskbar,
     alwaysOnTop,
     transparent: true,
     backgroundColor: '#00000000',
     title: 'Ferna Pomoro mini',
+    icon: ICON,
     webPreferences: baseWebPrefs,
   });
+  win.setOpacity(miniOpacity(settings));
   if (alwaysOnTop) win.setAlwaysOnTop(true, 'screen-saver');
   win.loadFile(path.join(RENDERER, 'mini.html'));
   hardenNavigation(win);

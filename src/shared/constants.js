@@ -90,8 +90,15 @@ const DEFAULT_SETTINGS = {
   minimizeToTray: true,
   closeToTray: true,
 
-  // Window
+  // Mini timer
   alwaysOnTopMini: true,
+  miniSize: 'medium', // 'small' | 'medium' | 'large'
+  miniOpacity: 1, // 0.3 – 1, for a see-through timer that stays on top
+  miniShowTask: true, // the task being worked on
+  miniShowClock: true, // the time of day
+  miniInTaskbar: false, // behave like an ordinary window instead of floating
+
+  // Window
   launchOnStartup: false,
   theme: 'dark', // 'dark' | 'light' | 'system'
 

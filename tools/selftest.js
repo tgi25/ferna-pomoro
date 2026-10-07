@@ -419,6 +419,46 @@ async function run(pomora) {
   check('a day with nothing on it still answers', !!empty && empty.totals.focusMs === 0 && !empty.isToday);
   check('the chart has a month of days to draw from', pomora.statsPayload().days.length === 30);
 
+  // --- backup and restore -------------------------------------------------
+  const os = require('os');
+  const fsx = require('fs');
+  const pathx = require('path');
+  const backupFile = pathx.join(os.tmpdir(), `pomora-selftest-backup-${Date.now()}.json`);
+  const made = pomora.command('data:backup', { path: backupFile });
+  check(
+    'a backup file is written',
+    made.ok && fsx.existsSync(backupFile) && fsx.statSync(backupFile).size > 200,
+    `${made.days} days · ${made.sessions} sessions`
+  );
+  const backupText = JSON.parse(fsx.readFileSync(backupFile, 'utf8'));
+  check(
+    'it carries settings, tasks, sessions and days',
+    backupText.app === 'ferna-pomoro' &&
+      !!backupText.settings.workMs &&
+      Array.isArray(backupText.sessions) &&
+      typeof backupText.days === 'object'
+  );
+
+  const beforeFocusMs = store.today().focusMs;
+  const restored = pomora.command('data:restore', { path: backupFile, mode: 'merge' });
+  check(
+    'merging its own backup back in changes nothing',
+    restored.ok && restored.sessionsAdded === 0 && store.today().focusMs === beforeFocusMs,
+    `${restored.daysKept} days left alone`
+  );
+
+  const probe = pomora.store.settings.workMs;
+  pomora.applySettings({ workMs: 99 * MINUTE });
+  const back = pomora.command('data:restore', { path: backupFile, mode: 'replace' });
+  check(
+    'a full restore puts the settings back and reaches the engine',
+    back.ok && back.settingsRestored && pomora.store.settings.workMs === probe && engine.settings.workMs === probe,
+    `${Math.round(pomora.store.settings.workMs / MINUTE)} min`
+  );
+  const refused = pomora.command('data:restore', { path: __filename, mode: 'merge' });
+  check('a file that is not a backup is refused', refused.ok === false);
+  fsx.unlinkSync(backupFile);
+
   check('csv export builds', store.exportCsv().split('\n')[0].startsWith('started_at'));
 
   // --- the normal icon comes back when nothing runs -------------------------
@@ -427,9 +467,50 @@ async function run(pomora) {
   check('with nothing running the taskbar shows the app icon again', pomora.taskbar._lastIconKey === 'app');
 
   // --- mini window --------------------------------------------------------
+  pomora.applySettings({ miniSize: 'medium', miniShowTask: true, miniOpacity: 1, alwaysOnTopMini: true, miniInTaskbar: false });
   pomora.toggleMini(true);
-  await wait(120);
+  await wait(200);
   check('mini timer opens', !!pomora.mini && pomora.mini.isVisible());
+  const medium = pomora.mini.getSize();
+
+  pomora.applySettings({ miniSize: 'small' });
+  await wait(120);
+  const small = pomora.mini.getSize();
+  check(
+    'the small size really is smaller',
+    small[0] < medium[0] && small[1] < medium[1],
+    `${small.join('x')} vs ${medium.join('x')}`
+  );
+
+  pomora.applySettings({ miniShowTask: false });
+  await wait(120);
+  check('hiding the task line shrinks it further', pomora.mini.getSize()[1] < small[1]);
+  pomora.applySettings({ miniShowTask: true });
+
+  pomora.applySettings({ miniOpacity: 0.6 });
+  await wait(120);
+  check('opacity can be turned down', Math.abs(pomora.mini.getOpacity() - 0.6) < 0.02, String(pomora.mini.getOpacity()));
+  pomora.applySettings({ miniOpacity: 0.01 });
+  await wait(120);
+  check('but never to invisible', pomora.mini.getOpacity() >= 0.29, String(pomora.mini.getOpacity()));
+  pomora.applySettings({ miniOpacity: 1 });
+
+  pomora.applySettings({ alwaysOnTopMini: false, miniInTaskbar: true });
+  await wait(120);
+  check('it can stop floating and take a taskbar button', !pomora.mini.isAlwaysOnTop());
+  // Minimising needs a window manager, which this headless run has none of;
+  // what can be checked here is that the command works and the window lives.
+  const minimised = pomora.command('window:minimise-mini');
+  await wait(150);
+  check('and can then be minimised out of the way', minimised === true && !pomora.mini.isDestroyed());
+  pomora.toggleMini(true);
+  await wait(200);
+  check('reopening it brings it back', !pomora.mini.isMinimized() && pomora.mini.isVisible());
+  pomora.applySettings({ alwaysOnTopMini: true, miniInTaskbar: false, miniSize: 'medium' });
+
+  const miniState = pomora.buildState();
+  check('the mini timer is told which task is running', 'taskTitle' in miniState);
+
   pomora.toggleMini(false);
   check('mini timer hides', !pomora.mini.isVisible());
 

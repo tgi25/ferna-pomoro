@@ -124,13 +124,32 @@ async function run(pomora) {
   await wait(350);
   await shoot(pomora.win, '04-settings');
 
-  // Mini timer
+  // Mini timer, in each of its three sizes
+  pomora.applySettings({ miniSize: 'medium', miniShowTask: true, miniShowClock: true });
   pomora.toggleMini(true);
-  await wait(500);
+  await wait(600);
   pomora.broadcastAll();
-  await wait(250);
+  await wait(300);
   await shoot(pomora.mini, '05-mini');
+  for (const size of ['small', 'large']) {
+    pomora.applySettings({ miniSize: size });
+    await wait(400);
+    pomora.broadcastAll();
+    await wait(250);
+    await shoot(pomora.mini, `19-mini-${size}`);
+  }
+  pomora.applySettings({ miniSize: 'medium' });
   pomora.toggleMini(false);
+
+  // The data card, where backups live
+  pomora.emitAll('navigate', { tab: 'settings' });
+  pomora.broadcastAll();
+  await wait(300);
+  await pomora.win.webContents.executeJavaScript(
+    "Array.from(document.querySelectorAll('legend')).find((l) => l.textContent === 'Your data').parentElement.scrollIntoView({ block: 'center' })"
+  );
+  await wait(300);
+  await shoot(pomora.win, '20-data-card');
 
   // Break curtain
   engine.startPhase(PHASE.SHORT_BREAK);

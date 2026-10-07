@@ -16,10 +16,12 @@
 
 </div>
 
-> **New in 1.5.0:** the history chart now has a labelled vertical axis, switches
-> between hours and pomodoros, and opens any day in full when you click its bar.
-> [See the statistics](#statistics) · [update now](#updating-to-a-new-version)
+> **New in 1.6.0:** the mini timer shows your task and the time of day, and can be
+> resized, made see-through or given a taskbar button — and your settings and
+> history can now be **backed up to a file** and restored on another machine.
+> [The mini timer](#the-mini-timer) · [Backups](#backups-and-moving-to-another-machine) · [update now](#updating-to-a-new-version)
 >
+> **1.5.0** gave the history chart a [labelled axis and a day-detail popup](#statistics);
 > **1.4.0** put the minutes left on the taskbar button in a
 > [cat-face icon](#the-taskbar-tells-you-how-long-you-have-worked); **1.3.0** added the
 > [reminder windows](#reminder-windows).
@@ -55,7 +57,7 @@ installing anything. Windows 10 or 11, 64-bit.
 Every release also carries `SHA256SUMS.txt`. To check a download:
 
 ```powershell
-Get-FileHash .\Ferna-Pomoro-Setup-1.5.0.exe -Algorithm SHA256
+Get-FileHash .\Ferna-Pomoro-Setup-1.6.0.exe -Algorithm SHA256
 ```
 
 The installer is not code-signed — a certificate costs more than this project
@@ -249,6 +251,52 @@ labelled with its weekday and date.
 **← Previous day** and **Next day →** walk through the history without going back
 to the chart; Esc closes the popup. Everything here is also in the **CSV export**.
 
+### The mini timer
+
+A small window you can park in a corner while you work in something else.
+
+<img src="docs/shots/05-mini.png" width="260" alt="The mini timer" />
+
+It carries the phase, the countdown, **the task you are working on**, **the time
+of day**, the progress bar, and start/pause, skip and open buttons. Drag it
+anywhere; it remembers where you put it.
+
+**Settings → Mini timer** has the rest:
+
+| Setting | What it does |
+| --- | --- |
+| **Size** | Small, medium or large. The window itself is resized, not just the text, and it shrinks again when a row is turned off. |
+| **Opacity** | 30–100%. A see-through timer stays readable without hiding what is behind it. |
+| **Show the task I am working on** | The task line, off for a smaller window. |
+| **Show the time of day** | The clock in the corner. |
+| **Keep it on top of other windows** | Off makes it an ordinary window that other apps can cover. |
+| **Give it a taskbar button** | It then behaves like any other window: a **–** appears on it, so you can minimise it out of the way instead of having it float over your work. |
+
+`Ctrl+Alt+M` opens and closes it.
+
+### Backups, and moving to another machine
+
+Everything — settings, tasks, the session log and every day's totals — lives in
+one file in `%APPDATA%\Ferna Pomoro`. Installing a new version never touches
+that folder, so **updating the app loses nothing**. A new computer, a reinstalled
+Windows or a wiped profile is a different matter, and that is what
+**Settings → Your data** is for:
+
+- **Back up to a file…** writes one `.json` file holding your settings, tasks,
+  sessions and daily totals. Keep it anywhere you like.
+- **Restore from a backup…** reads one back. It first tells you what is in the
+  file — when it was taken, from which version, how many days, hours, pomodoros,
+  sessions and tasks — and then asks how to put it back:
+
+| Choice | Effect |
+| --- | --- |
+| **Merge with what is here** | Adds days, sessions and tasks this machine does not have, and leaves your current settings alone. Where a day exists on both sides, the fuller record wins — a day is never added up twice. Merging the same file again changes nothing. |
+| **Replace everything** | Settings, tasks and the whole history become the file's. |
+
+Either way the app picks the restored data up immediately, with no restart. The
+CSV export is still there for reading your history in a spreadsheet; the backup
+is the one to keep, because it can be put back.
+
 ### The break window, on your terms
 
 The break window covers the screen so a break is actually a break. Three
@@ -348,7 +396,7 @@ session automatically* is on, there is nothing to wait for.
 - **Statistics**: see below.
 - **Full-screen break window** across every monitor, with a rotating suggestion
   (*look 20 feet away for 20 seconds*) — see below.
-- **Mini timer**: a small always-on-top clock you can park in a corner.
+- **Mini timer**: see below.
 - **Global shortcuts**: `Ctrl+Alt+P` start/pause, `Ctrl+Alt+S` skip,
   `Ctrl+Alt+M` mini timer.
 - Minimise/close to tray, start with Windows, daily goal with its own alert.
@@ -362,7 +410,7 @@ session automatically* is on, there is nothing to wait for.
 ```bash
 npm install
 npm start          # run the app
-npm test           # 65 unit tests: engine, idle watcher, store, reminders, icons, chart
+npm test           # 73 unit tests: engine, idle watcher, store, backups, reminders, icons, chart
 npm run dist       # build the Windows installer (needs Wine on Linux)
 python3 tools/make-assets.py   # regenerate sounds and icons
 ```
@@ -370,7 +418,7 @@ python3 tools/make-assets.py   # regenerate sounds and icons
 `npx electron . --selftest` drives the whole app inside Electron — windows, the
 canvas-drawn taskbar images, the full idle freeze/return path, the break-window
 dismissal, the three reminder windows, the live icons, manual time entry, the
-day-detail query and the IPC surface — 84 checks, ending in a
+day-detail query, backup and restore, and the IPC surface — 97 checks, ending in a
 pass/fail summary. `--screenshots` writes `docs/shots/`.
 
 ### How it is laid out
@@ -437,6 +485,14 @@ the taskbar progress bar is what Windows has always offered and few apps use.
 MIT licensed. Built for TGI Fernando.
 
 ## Changelog
+
+**1.6.0**
+- The mini timer shows the current task and the time of day, comes in three
+  sizes, can be made see-through, and can take a taskbar button so it stops
+  floating over other windows.
+- Today's sessions scroll inside their own box, with the header pinned.
+- **Back up and restore**: settings, tasks and history to a file, and back —
+  merged or replacing — for a new machine.
 
 **1.5.0**
 - The history chart has a labelled vertical axis with gridlines, and switches

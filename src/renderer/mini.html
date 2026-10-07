@@ -10,6 +10,9 @@
     <style>
       :root {
         --accent: #e0483f;
+        --clock: 30px;
+        --label: 10px;
+        --btn: 11px;
       }
       * {
         box-sizing: border-box;
@@ -24,63 +27,92 @@
         user-select: none;
         overflow: hidden;
       }
+      body[data-size="small"] {
+        --clock: 24px;
+        --label: 9px;
+        --btn: 10px;
+      }
+      body[data-size="large"] {
+        --clock: 38px;
+        --label: 11px;
+        --btn: 12px;
+      }
       .mini {
         height: 100%;
-        margin: 6px;
-        border-radius: 14px;
+        margin: 5px;
+        border-radius: 13px;
         background: rgba(20, 22, 28, 0.94);
         border: 1px solid #2c3342;
         box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
         display: grid;
-        grid-template-rows: auto 1fr auto;
-        padding: 8px 12px 10px;
+        grid-template-rows: auto auto auto 1fr auto;
+        padding: 6px 10px 8px;
         -webkit-app-region: drag;
       }
       .top {
         display: flex;
         align-items: center;
-        gap: 6px;
-        font-size: 10.5px;
+        gap: 5px;
+        font-size: var(--label);
         letter-spacing: 0.08em;
         text-transform: uppercase;
         color: #98a2b8;
+        min-height: 15px;
       }
       .pip {
-        width: 8px;
-        height: 8px;
+        width: 7px;
+        height: 7px;
         border-radius: 50%;
         background: var(--accent);
+        flex: none;
       }
-      .close {
+      #phase {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .now {
         margin-left: auto;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0.02em;
+        color: #c3cbdb;
+      }
+      .wbtn {
         -webkit-app-region: no-drag;
         border: 0;
         background: transparent;
         color: #98a2b8;
         cursor: pointer;
-        font-size: 13px;
+        font-size: 12px;
         line-height: 1;
-        padding: 2px 4px;
+        padding: 2px 3px;
         border-radius: 5px;
       }
-      .close:hover {
+      .wbtn:hover {
         background: #212633;
         color: #e7ebf3;
       }
       .clock {
         font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
-        font-size: 34px;
+        font-size: var(--clock);
         font-weight: 600;
         font-variant-numeric: tabular-nums;
-        line-height: 1;
-        align-self: center;
+        line-height: 1.1;
+      }
+      .task {
+        font-size: calc(var(--label) + 1px);
+        color: #9aa5ba;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       .bar {
         height: 4px;
         border-radius: 2px;
         background: #212633;
         overflow: hidden;
-        margin-bottom: 7px;
+        margin: 5px 0 6px;
+        align-self: end;
       }
       .fill {
         height: 100%;
@@ -90,7 +122,7 @@
       }
       .row {
         display: flex;
-        gap: 6px;
+        gap: 5px;
         -webkit-app-region: no-drag;
       }
       button.act {
@@ -98,9 +130,9 @@
         border: 1px solid #2c3342;
         background: #212633;
         color: #e7ebf3;
-        border-radius: 8px;
-        padding: 5px 0;
-        font-size: 11.5px;
+        border-radius: 7px;
+        padding: 4px 0;
+        font-size: var(--btn);
         font-family: inherit;
         cursor: pointer;
       }
@@ -112,23 +144,27 @@
         border-color: transparent;
         font-weight: 600;
       }
+      .hidden {
+        display: none !important;
+      }
     </style>
   </head>
-  <body>
+  <body data-size="medium">
     <div class="mini">
       <div class="top">
         <span class="pip" id="pip"></span>
         <span id="phase">Ready</span>
-        <button class="close" id="close" title="Hide mini timer">✕</button>
+        <span class="now" id="now"></span>
+        <button class="wbtn hidden" id="min" title="Minimise">–</button>
+        <button class="wbtn" id="close" title="Hide mini timer">✕</button>
       </div>
       <div class="clock" id="clock">25:00</div>
-      <div>
-        <div class="bar"><div class="fill" id="fill"></div></div>
-        <div class="row">
-          <button class="act primary" id="toggle">Start</button>
-          <button class="act" id="skip">Skip</button>
-          <button class="act" id="open">Open</button>
-        </div>
+      <div class="task" id="task"></div>
+      <div class="bar"><div class="fill" id="fill"></div></div>
+      <div class="row">
+        <button class="act primary" id="toggle">Start</button>
+        <button class="act" id="skip">Skip</button>
+        <button class="act" id="open">Open</button>
       </div>
     </div>
     <script src="mini.js"></script>

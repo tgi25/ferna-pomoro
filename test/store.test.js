@@ -335,3 +335,90 @@ test('a day with nothing on it still answers', () => {
   assert.equal(detail.spanMs, 0);
   assert.equal(detail.isToday, false);
 });
+
+// ------------------------------------------------------------------ backups
+
+function storeWithHistory() {
+  const store = tmpStore();
+  const t = store.addTask({ title: 'Write the paper', estimate: 3 });
+  store.logSession({
+    type: 'phase',
+    phase: PHASE.WORK,
+    startedAt: Date.now() - 25 * MINUTE,
+    endedAt: Date.now(),
+    plannedMs: 25 * MINUTE,
+    workedMs: 25 * MINUTE,
+    idleRemovedMs: 0,
+    reason: 'completed',
+    completed: true,
+    taskId: t.id,
+  });
+  store.data.days['2026-09-01'] = { ...Store.emptyDay(), focusMs: 90 * MINUTE, pomodoros: 3 };
+  store.updateSettings({ workMs: 50 * MINUTE, miniSize: 'large' });
+  return store;
+}
+
+test('a backup carries settings, tasks, sessions and days', () => {
+  const store = storeWithHistory();
+  const backup = store.exportBackup({ appVersion: '1.6.0' });
+  assert.equal(backup.app, 'ferna-pomoro');
+  assert.equal(backup.settings.workMs, 50 * MINUTE);
+  assert.equal(backup.tasks.length, 1);
+  assert.equal(backup.sessions.length, 1);
+  assert.ok(backup.days['2026-09-01']);
+
+  // It must survive a round trip through a file.
+  const copy = JSON.parse(JSON.stringify(backup));
+  const info = Store.describeBackup(copy);
+  assert.equal(info.ok, true);
+  assert.equal(info.days, 2, 'the logged session created today as well');
+  assert.equal(info.pomodoros, 4);
+});
+
+test('restoring over a fresh machine brings everything back', () => {
+  const backup = JSON.parse(JSON.stringify(storeWithHistory().exportBackup()));
+  const fresh = tmpStore();
+  const summary = fresh.importBackup(backup, { mode: 'replace' });
+  assert.equal(summary.ok, true);
+  assert.equal(summary.settingsRestored, true);
+  assert.equal(fresh.settings.workMs, 50 * MINUTE);
+  assert.equal(fresh.settings.miniSize, 'large');
+  assert.equal(fresh.data.tasks.length, 1);
+  assert.equal(fresh.data.days['2026-09-01'].focusMs, 90 * MINUTE);
+  // Settings the backup predates still get their defaults.
+  assert.equal(fresh.settings.notStartedReminder, true);
+});
+
+test('merging adds what is missing and never counts a day twice', () => {
+  const backup = JSON.parse(JSON.stringify(storeWithHistory().exportBackup()));
+  const other = tmpStore();
+  other.data.days['2026-09-01'] = { ...Store.emptyDay(), focusMs: 20 * MINUTE, pomodoros: 1 };
+  other.data.days['2026-09-02'] = { ...Store.emptyDay(), focusMs: 30 * MINUTE, pomodoros: 1 };
+  other.updateSettings({ workMs: 25 * MINUTE });
+
+  const summary = other.importBackup(backup, { mode: 'merge' });
+  assert.equal(summary.settingsRestored, false);
+  assert.equal(other.settings.workMs, 25 * MINUTE, 'my own settings are left alone');
+  assert.equal(other.data.days['2026-09-01'].focusMs, 90 * MINUTE, 'the fuller record wins');
+  assert.equal(summary.daysReplaced, 1);
+  assert.equal(other.data.days['2026-09-02'].focusMs, 30 * MINUTE, 'days only I have are kept');
+  assert.equal(summary.sessionsAdded, 1);
+  assert.equal(summary.tasksAdded, 1);
+
+  // Merging the same file again changes nothing.
+  const again = other.importBackup(backup, { mode: 'merge' });
+  assert.equal(again.sessionsAdded, 0);
+  assert.equal(again.tasksAdded, 0);
+  assert.equal(again.daysReplaced, 0);
+  assert.equal(other.data.sessions.length, 1);
+});
+
+test('a file that is not a backup is refused', () => {
+  const store = tmpStore();
+  for (const junk of [null, 42, 'hello', [], { hello: 'world' }]) {
+    const res = store.importBackup(junk);
+    assert.equal(res.ok, false);
+    assert.match(res.error, /not a Ferna Pomoro backup/);
+  }
+  assert.equal(store.data.sessions.length, 0);
+});

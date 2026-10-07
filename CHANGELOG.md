@@ -4,6 +4,29 @@ All notable changes to Ferna Pomoro are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] — 2026-10-07
+
+### Added
+- **Mini timer settings** (Settings → Mini timer): the task being worked on and
+  the time of day are shown on it; three sizes that resize the window itself;
+  opacity from 30% to 100%; a switch to stop it floating on top; and a taskbar
+  button, which also gives it a minimise control so it can be put out of the way.
+  Rows that are turned off shrink the window rather than leaving a gap.
+- **Backups** (Settings → Your data): write settings, tasks, sessions and daily
+  totals to a `.json` file, and restore one. Restoring says what the file holds
+  before touching anything, then offers **Merge** (adds what is missing, keeps
+  your settings, never counts a day twice) or **Replace everything**. The app
+  picks up the restored data without a restart.
+
+### Changed
+- Today's sessions scroll inside their own box with the header pinned, instead
+  of pushing the rest of the Statistics pane down.
+- The session tables and the day popup have a visible, grabbable scrollbar.
+
+### Fixed
+- Resizing the mini timer had no effect, because the window is not resizable;
+  it is now unlocked for the instant it takes to resize.
+
 ## [1.5.0] — 2026-09-23
 
 ### Added
