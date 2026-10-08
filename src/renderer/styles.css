@@ -1174,3 +1174,9 @@ input[type='time'] {
   background: var(--bg-3);
   color: var(--text);
 }
+
+.rule {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 14px 0 12px;
+}

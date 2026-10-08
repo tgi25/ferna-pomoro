@@ -383,13 +383,17 @@ function renderDayModal(d) {
     month: 'long',
     year: 'numeric',
   });
+  const hasTotals = d.totals.focusMs > 0 || d.totals.pomodoros > 0;
   $('#day-sub').textContent = d.firstAt
     ? `${d.isToday ? 'Today · ' : ''}${clock(d.firstAt)} – ${clock(d.lastAt)} · ${fmtMs(
         d.spanMs
       )} from first session to last`
-    : d.isToday
-      ? 'Today · nothing recorded yet'
-      : 'Nothing was recorded on this day';
+    : hasTotals
+      // Day totals without a session log: older history, or a restored backup.
+      ? `${d.isToday ? 'Today · ' : ''}Daily totals only — the individual sessions are not in the log`
+      : d.isToday
+        ? 'Today · nothing recorded yet'
+        : 'Nothing was recorded on this day';
 
   const t = d.totals;
   const c = d.counts;
@@ -581,6 +585,7 @@ function toForm(s) {
     startupReminderAfterMin: Math.round((s.startupReminderAfterMs || 5 * MIN) / MIN),
     volumePct: Math.round((s.volume || 0) * 100),
     miniOpacityPct: Math.round((s.miniOpacity ?? 1) * 100),
+    miniScalePct: Math.round((s.miniScale ?? 1) * 100),
   };
 }
 
@@ -602,6 +607,8 @@ function fromField(key, value) {
       return { volume: Math.min(1, Math.max(0, value / 100)) };
     case 'miniOpacityPct':
       return { miniOpacity: Math.min(1, Math.max(0.3, value / 100)) };
+    case 'miniScalePct':
+      return { miniScale: Math.min(2.5, Math.max(0.6, value / 100)) };
     default:
       return { [key]: value };
   }
@@ -612,6 +619,13 @@ function renderSettings(s) {
   renderReminderHint(s);
   const op = $('#mini-opacity-val');
   if (op) op.textContent = `${Math.round((s.miniOpacity ?? 1) * 100)}%`;
+  const sc = $('#mini-scale-val');
+  if (sc) sc.textContent = `${Math.round((s.miniScale ?? 1) * 100)}%`;
+  // The overlay's own rows mean nothing while the full mini timer is showing.
+  $$('[data-setting="miniCompactLayout"], [data-setting="miniScalePct"]').forEach(
+    (el) => (el.disabled = !s.miniCompact)
+  );
+  $$('[data-setting="miniSize"]').forEach((el) => (el.disabled = !!s.miniCompact));
   $$('[data-setting="notStartedAfterMin"]').forEach((el) => (el.disabled = !s.notStartedReminder));
   $$('[data-setting="startupReminderAfterMin"]').forEach((el) => (el.disabled = !s.startupReminder));
   const form = toForm(s);
@@ -782,6 +796,6 @@ window.pomora.on('navigate', ({ tab }) => showTab(tab));
   renderTasks((await window.pomora.send('task:list')) || []);
   renderStats(await window.pomora.send('stats:get'));
   renderTimer(await window.pomora.send('state:get'));
-  $('#version').textContent = `Ferna Pomoro 1.6.0 · Electron ${window.pomora.version}`;
+  $('#version').textContent = `Ferna Pomoro 1.7.0 · Electron ${window.pomora.version}`;
   audio.remove();
 })();

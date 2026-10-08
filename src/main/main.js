@@ -13,6 +13,7 @@ const {
   dialog,
   shell,
   nativeImage,
+  screen,
 } = require('electron');
 
 const { PHASE, STATUS, IDLE_ACTION, END_REASON, MINUTE } = require('../shared/constants');
@@ -24,7 +25,7 @@ const { Notifier } = require('./notifier');
 const { ImageFactory } = require('./image-factory');
 const { NotStartedNudge } = require('./nudge');
 const { TaskbarIndicator, COLORS, PHASE_LABEL, iconLabel } = require('./taskbar');
-const { miniWindowSize, miniOpacity } = require('../shared/mini');
+const { miniWindowSize, miniOpacity, miniZoom } = require('../shared/mini');
 const windows = require('./windows');
 
 const APP_ID = 'lk.ac.sjp.ferna-pomoro';
@@ -1338,6 +1339,11 @@ class PomoraApp {
     if (this.taskbar) this.taskbar.setSettings(settings);
     this.lastTrayKey = null;
     this.applyMiniSettings(settings);
+    if (patch.miniCompact === true) {
+      // Turning the overlay on: show it, and put it where it is meant to live.
+      this.toggleMini(true);
+      this.parkMini();
+    }
     if ('launchOnStartup' in patch && process.platform === 'win32') {
       app.setLoginItemSettings({
         openAtLogin: !!settings.launchOnStartup,
@@ -1502,9 +1508,14 @@ class PomoraApp {
     this.refreshTrayMenu();
   }
 
-  /** Size, opacity, on-top and taskbar behaviour of the mini timer. */
+  /** Size, zoom, opacity, on-top and taskbar behaviour of the mini timer. */
   applyMiniSettings(settings = this.store.settings) {
     if (!this.mini || this.mini.isDestroyed()) return;
+    // Zoom first: the compact overlay is scaled by zooming the page, so the
+    // countdown and the clock always keep their proportions to one another.
+    const zoom = miniZoom(settings);
+    if (this.mini.webContents.getZoomFactor() !== zoom) this.mini.webContents.setZoomFactor(zoom);
+
     const { width, height } = miniWindowSize(settings);
     const [w, h] = this.mini.getSize();
     if (w !== width || h !== height) {
@@ -1517,6 +1528,27 @@ class PomoraApp {
     this.mini.setAlwaysOnTop(!!settings.alwaysOnTopMini, 'screen-saver');
     this.mini.setSkipTaskbar(!settings.miniInTaskbar);
     this.mini.setOpacity(miniOpacity(settings));
+    // An overlay is no use if a full-screen window covers it.
+    try {
+      this.mini.setVisibleOnAllWorkspaces(!!settings.alwaysOnTopMini, { visibleOnFullScreen: true });
+    } catch {
+      /* not supported everywhere; the always-on-top level does the work */
+    }
+  }
+
+  /**
+   * Park the overlay in the bottom-right corner of the work area — just above
+   * the taskbar, where the taskbar's own countdown would have been.
+   */
+  parkMini() {
+    if (!this.mini || this.mini.isDestroyed()) return;
+    const area = screen.getPrimaryDisplay().workArea;
+    const [w, h] = this.mini.getSize();
+    const x = Math.max(area.x, area.x + area.width - w - 16);
+    const y = Math.max(area.y, area.y + area.height - h - 12);
+    this.mini.setPosition(Math.round(x), Math.round(y), false);
+    this.store.data.meta.miniBounds = { x: Math.round(x), y: Math.round(y) };
+    this.store.save();
   }
 
   registerShortcuts() {

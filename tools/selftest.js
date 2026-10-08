@@ -508,6 +508,63 @@ async function run(pomora) {
   check('reopening it brings it back', !pomora.mini.isMinimized() && pomora.mini.isVisible());
   pomora.applySettings({ alwaysOnTopMini: true, miniInTaskbar: false, miniSize: 'medium' });
 
+  // --- the ultra-compact overlay ------------------------------------------
+  const fullSize = pomora.mini.getSize();
+  pomora.applySettings({ miniCompact: true, miniCompactLayout: 'vertical', miniScale: 1 });
+  await wait(200);
+  const compact = pomora.mini.getSize();
+  check(
+    'the overlay is much smaller than the mini timer',
+    compact[0] < fullSize[0] && compact[1] < fullSize[1],
+    `${compact.join('x')} vs ${fullSize.join('x')}`
+  );
+  check('and it is still on screen', pomora.mini.isVisible());
+
+  pomora.applySettings({ miniCompactLayout: 'horizontal' });
+  await wait(200);
+  const wide = pomora.mini.getSize();
+  check(
+    'side by side is wider and shorter than stacked',
+    wide[0] > compact[0] && wide[1] < compact[1],
+    `${wide.join('x')}`
+  );
+
+  pomora.applySettings({ miniCompactLayout: 'vertical', miniScale: 2 });
+  await wait(250);
+  const big = pomora.mini.getSize();
+  check(
+    'scaling doubles the window',
+    Math.abs(big[0] - compact[0] * 2) <= 2 && Math.abs(big[1] - compact[1] * 2) <= 2,
+    `${big.join('x')}`
+  );
+  check(
+    'and zooms the page with it, so both numbers grow',
+    Math.abs(pomora.mini.webContents.getZoomFactor() - 2) < 0.01,
+    String(pomora.mini.webContents.getZoomFactor())
+  );
+  pomora.applySettings({ miniScale: 9 });
+  await wait(200);
+  check('the scale stops at 250%', pomora.mini.webContents.getZoomFactor() <= 2.5);
+
+  pomora.parkMini();
+  await wait(150);
+  const area = require('electron').screen.getPrimaryDisplay().workArea;
+  const [px, py] = pomora.mini.getPosition();
+  const [pw, ph] = pomora.mini.getSize();
+  check(
+    'it parks itself above the taskbar, bottom right',
+    px + pw <= area.x + area.width && py + ph <= area.y + area.height &&
+      px > area.x + area.width / 2 && py > area.y + area.height / 2,
+    `${px},${py}`
+  );
+
+  pomora.applySettings({ miniCompact: false, miniScale: 1 });
+  await wait(250);
+  check(
+    'turning it off brings the full mini timer back at normal zoom',
+    pomora.mini.getSize()[0] === fullSize[0] && pomora.mini.webContents.getZoomFactor() === 1
+  );
+
   const miniState = pomora.buildState();
   check('the mini timer is told which task is running', 'taskTitle' in miniState);
 

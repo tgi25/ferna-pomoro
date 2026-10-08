@@ -16,10 +16,13 @@
 
 </div>
 
-> **New in 1.6.0:** the mini timer shows your task and the time of day, and can be
-> resized, made see-through or given a taskbar button — and your settings and
-> history can now be **backed up to a file** and restored on another machine.
-> [The mini timer](#the-mini-timer) · [Backups](#backups-and-moving-to-another-machine) · [update now](#updating-to-a-new-version)
+> **New in 1.7.0:** an **ultra-compact overlay** — just the countdown and the clock,
+> scaled to any size, stacked or side by side, sitting on top of full-screen
+> windows where the taskbar is hidden.
+> [The overlay](#the-ultra-compact-overlay) · [update now](#updating-to-a-new-version)
+>
+> **1.6.0** gave the mini timer its [task and clock](#the-mini-timer) and added
+> [backups](#backups-and-moving-to-another-machine).
 >
 > **1.5.0** gave the history chart a [labelled axis and a day-detail popup](#statistics);
 > **1.4.0** put the minutes left on the taskbar button in a
@@ -57,7 +60,7 @@ installing anything. Windows 10 or 11, 64-bit.
 Every release also carries `SHA256SUMS.txt`. To check a download:
 
 ```powershell
-Get-FileHash .\Ferna-Pomoro-Setup-1.6.0.exe -Algorithm SHA256
+Get-FileHash .\Ferna-Pomoro-Setup-1.7.0.exe -Algorithm SHA256
 ```
 
 The installer is not code-signed — a certificate costs more than this project
@@ -274,6 +277,31 @@ anywhere; it remembers where you put it.
 
 `Ctrl+Alt+M` opens and closes it.
 
+#### The ultra-compact overlay
+
+Full-screen work hides the taskbar, and with it the countdown. The overlay is
+the answer: the focus time and the time of day, nothing else, floating above
+whatever is on screen.
+
+<img src="docs/shots/21-overlay-vertical.png" width="150" alt="The overlay, stacked" />
+<img src="docs/shots/21-overlay-horizontal.png" width="250" alt="The overlay, side by side" />
+
+- **Two layouts**: *stacked*, with the clock in smaller type under the
+  countdown, or *side by side*.
+- **Any size**: one slider from 60% to 250%. The window and both numbers scale
+  together, so the proportions never change.
+- **Above everything**: it keeps the always-on-top level the break windows use,
+  so it stays visible over full-screen apps. (A game in exclusive full-screen
+  mode can still cover it — nothing running in Windows can sit above that.)
+- Switching it on parks it in the bottom-right corner, just above the taskbar;
+  drag it anywhere from there.
+- A thin line along the bottom carries the phase colour, so a glance tells you
+  focus from break.
+- At rest it shows only the two numbers. **Hover** it for start/pause, open and
+  hide; **double-click** to open the main window.
+
+Turn it on in **Settings → Mini timer → Ultra-compact overlay**.
+
 ### Backups, and moving to another machine
 
 Everything — settings, tasks, the session log and every day's totals — lives in
@@ -410,7 +438,7 @@ session automatically* is on, there is nothing to wait for.
 ```bash
 npm install
 npm start          # run the app
-npm test           # 73 unit tests: engine, idle watcher, store, backups, reminders, icons, chart
+npm test           # 77 unit tests: engine, idle watcher, store, backups, reminders, icons, chart, overlay
 npm run dist       # build the Windows installer (needs Wine on Linux)
 python3 tools/make-assets.py   # regenerate sounds and icons
 ```
@@ -418,7 +446,8 @@ python3 tools/make-assets.py   # regenerate sounds and icons
 `npx electron . --selftest` drives the whole app inside Electron — windows, the
 canvas-drawn taskbar images, the full idle freeze/return path, the break-window
 dismissal, the three reminder windows, the live icons, manual time entry, the
-day-detail query, backup and restore, and the IPC surface — 97 checks, ending in a
+day-detail query, backup and restore, the compact overlay, and the IPC
+surface — 105 checks, ending in a
 pass/fail summary. `--screenshots` writes `docs/shots/`.
 
 ### How it is laid out
@@ -485,6 +514,11 @@ the taskbar progress bar is what Windows has always offered and few apps use.
 MIT licensed. Built for TGI Fernando.
 
 ## Changelog
+
+**1.7.0**
+- An ultra-compact overlay for the mini timer: the focus countdown and the time
+  of day only, stacked or side by side, scalable from 60% to 250%, pinned above
+  full-screen windows.
 
 **1.6.0**
 - The mini timer shows the current task and the time of day, comes in three

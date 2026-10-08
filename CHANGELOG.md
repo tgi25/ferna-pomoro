@@ -4,6 +4,23 @@ All notable changes to Ferna Pomoro are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] — 2026-10-08
+
+### Added
+- **Ultra-compact overlay** (Settings → Mini timer → Ultra-compact overlay).
+  Full-screen work hides the taskbar and its countdown; this shows the focus
+  time and the time of day, and nothing else, on top of whatever is running.
+  - **Stacked** (clock in smaller type below) or **side by side**.
+  - **Scalable from 60% to 250%** with one slider: the window is resized and the
+    page zoomed together, so both numbers keep their proportions.
+  - Held at the same always-on-top level as the break windows, and marked
+    visible over full-screen windows.
+  - Switching it on shows the overlay and parks it bottom-right, just above the
+    taskbar; it can be dragged anywhere from there.
+  - A hairline in the phase colour along the bottom edge.
+  - Start/pause, open and hide appear on hover; double-click opens the main
+    window.
+
 ## [1.6.0] — 2026-10-07
 
 ### Added

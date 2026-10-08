@@ -85,6 +85,40 @@ async function run(pomora) {
     taskId: t1.id,
   });
 
+  // A believable morning: four pomodoros with their breaks, on two tasks.
+  const at = (h, m) => {
+    const d = new Date();
+    d.setHours(h, m, 0, 0);
+    return d.getTime();
+  };
+  for (let i = 0; i < 4; i += 1) {
+    const start = at(9, 5) + i * 30 * MINUTE;
+    store.logSession({
+      type: 'phase',
+      phase: PHASE.WORK,
+      startedAt: start,
+      endedAt: start + 25 * MINUTE,
+      plannedMs: 25 * MINUTE,
+      workedMs: 25 * MINUTE,
+      idleRemovedMs: i === 2 ? 4 * MINUTE : 0,
+      reason: 'completed',
+      completed: true,
+      taskId: i < 2 ? t1.id : t3.id,
+    });
+    store.logSession({
+      type: 'phase',
+      phase: i === 3 ? PHASE.LONG_BREAK : PHASE.SHORT_BREAK,
+      startedAt: start + 25 * MINUTE,
+      endedAt: start + (i === 3 ? 40 : 30) * MINUTE,
+      plannedMs: (i === 3 ? 15 : 5) * MINUTE,
+      workedMs: (i === 3 ? 15 : 5) * MINUTE,
+      idleRemovedMs: 0,
+      reason: 'completed',
+      completed: true,
+      taskId: null,
+    });
+  }
+
   engine.setTask(t1.id);
   engine.startPhase(PHASE.WORK);
   engine.accumulatedMs = 9 * MINUTE + 12 * 1000;
@@ -112,8 +146,9 @@ async function run(pomora) {
   await shoot(pomora.win, '18-chart');
 
   // One day, in full: open the popup by clicking a bar, as a user would.
+  // Open today: the only day in this demo history with a full session log.
   await pomora.win.webContents.executeJavaScript(
-    "document.querySelectorAll('#chart-plot .bar')[11].click()"
+    "document.querySelector('#chart-plot .bar.is-today').click()"
   );
   await wait(600);
   await shoot(pomora.win, '17-day-detail');
@@ -130,7 +165,18 @@ async function run(pomora) {
   await wait(600);
   pomora.broadcastAll();
   await wait(300);
+  // Captured at twice the size: the mini timer is small, and a 232 px picture
+  // turns to mush the moment anything enlarges it (a video, a web page).
+  const miniSize = pomora.mini.getSize();
+  pomora.mini.setResizable(true);
+  pomora.mini.setSize(miniSize[0] * 2, miniSize[1] * 2, false);
+  pomora.mini.webContents.setZoomFactor(2);
+  await wait(450);
   await shoot(pomora.mini, '05-mini');
+  pomora.mini.webContents.setZoomFactor(1);
+  pomora.mini.setSize(miniSize[0], miniSize[1], false);
+  pomora.mini.setResizable(false);
+  await wait(250);
   for (const size of ['small', 'large']) {
     pomora.applySettings({ miniSize: size });
     await wait(400);
@@ -139,6 +185,25 @@ async function run(pomora) {
     await shoot(pomora.mini, `19-mini-${size}`);
   }
   pomora.applySettings({ miniSize: 'medium' });
+
+  // The ultra-compact overlay, in both layouts, captured at twice the size.
+  for (const layout of ['vertical', 'horizontal']) {
+    pomora.applySettings({ miniCompact: true, miniCompactLayout: layout, miniScale: 1 });
+    await wait(450);
+    pomora.broadcastAll();
+    const size = pomora.mini.getSize();
+    pomora.mini.setResizable(true);
+    pomora.mini.setSize(size[0] * 2, size[1] * 2, false);
+    pomora.mini.webContents.setZoomFactor(2);
+    await wait(450);
+    await shoot(pomora.mini, `21-overlay-${layout}`);
+    pomora.mini.webContents.setZoomFactor(1);
+    pomora.mini.setSize(size[0], size[1], false);
+    pomora.mini.setResizable(false);
+    await wait(200);
+  }
+  pomora.applySettings({ miniCompact: false, miniScale: 1 });
+  await wait(300);
   pomora.toggleMini(false);
 
   // The data card, where backups live

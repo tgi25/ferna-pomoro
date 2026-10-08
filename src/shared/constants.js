@@ -97,6 +97,9 @@ const DEFAULT_SETTINGS = {
   miniShowTask: true, // the task being worked on
   miniShowClock: true, // the time of day
   miniInTaskbar: false, // behave like an ordinary window instead of floating
+  miniCompact: false, // ultra-compact overlay: the countdown and the clock, nothing else
+  miniCompactLayout: 'vertical', // 'vertical' | 'horizontal'
+  miniScale: 1, // 0.6–2.5, how large the overlay is drawn
 
   // Window
   launchOnStartup: false,

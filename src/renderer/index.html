@@ -342,6 +342,17 @@
             <label class="row"><span>Show the time of day</span><input type="checkbox" data-setting="miniShowClock" /></label>
             <label class="row"><span>Keep it on top of other windows</span><input type="checkbox" data-setting="alwaysOnTopMini" /></label>
             <label class="row"><span>Give it a taskbar button</span><input type="checkbox" data-setting="miniInTaskbar" /></label>
+            <hr class="rule" />
+            <label class="row"><span>Ultra-compact overlay (time only)</span><input type="checkbox" data-setting="miniCompact" /></label>
+            <label class="row">
+              <span>Overlay layout</span>
+              <select data-setting="miniCompactLayout">
+                <option value="vertical">Stacked — clock under the countdown</option>
+                <option value="horizontal">Side by side</option>
+              </select>
+            </label>
+            <label class="row"><span>Overlay size</span><input type="range" min="60" max="250" step="10" data-setting="miniScalePct" /><em id="mini-scale-val">100%</em></label>
+            <p class="hint">The overlay shows the focus countdown and the time of day, nothing else, and stays on top of full-screen windows where the taskbar is hidden. Hover it for start/pause, open and hide; drag it anywhere; double-click to open the main window.</p>
             <p class="hint">With a taskbar button it behaves like an ordinary window: a – appears on it, so you can minimise it out of the way instead of having it float over your work. Opacity applies while it stays on top.</p>
             <div class="row row--buttons">
               <span>Preview</span>

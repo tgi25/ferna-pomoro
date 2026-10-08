@@ -147,6 +147,101 @@
       .hidden {
         display: none !important;
       }
+
+      /* ------------------------------------------- the ultra-compact overlay
+         Nothing but the countdown and the time of day, for sitting over a
+         full-screen window. The whole page is zoomed by the main process, so
+         every size here is in "100%" units and scales together. */
+      .compact {
+        display: none;
+        height: 100%;
+        margin: 4px;
+        border-radius: 11px;
+        background: rgba(18, 20, 26, 0.92);
+        border: 1px solid #2c3342;
+        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
+        -webkit-app-region: drag;
+        position: relative;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+      body[data-compact="1"] .compact {
+        display: flex;
+      }
+      body[data-compact="1"] .mini {
+        display: none;
+      }
+      body[data-compact="1"][data-layout="vertical"] .compact {
+        flex-direction: column;
+        gap: 1px;
+      }
+      body[data-compact="1"][data-layout="horizontal"] .compact {
+        flex-direction: row;
+        gap: 10px;
+        padding: 0 12px;
+      }
+      .c-focus {
+        font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
+        font-size: 30px;
+        font-weight: 700;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+        color: #f2f5fa;
+      }
+      body[data-layout="horizontal"] .c-focus {
+        font-size: 26px;
+      }
+      .c-now {
+        font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
+        font-size: 15px;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+        color: #9aa5ba;
+        white-space: nowrap;
+      }
+      body[data-layout="horizontal"] .c-now {
+        font-size: 14px;
+      }
+      /* A hairline in the phase colour, so a glance also says focus or break. */
+      .c-edge {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 3px;
+        background: var(--accent);
+        opacity: 0.9;
+      }
+      .c-tools {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        background: rgba(14, 16, 21, 0.93);
+        opacity: 0;
+        transition: opacity 0.12s ease;
+        -webkit-app-region: no-drag;
+      }
+      .compact:hover .c-tools {
+        opacity: 1;
+      }
+      .c-tools button {
+        font-family: inherit;
+        font-size: 13px;
+        line-height: 1;
+        color: #e7ebf3;
+        background: #212633;
+        border: 1px solid #2c3342;
+        border-radius: 6px;
+        padding: 5px 8px;
+        cursor: pointer;
+      }
+      .c-tools button:hover {
+        filter: brightness(1.25);
+      }
     </style>
   </head>
   <body data-size="medium">
@@ -167,6 +262,17 @@
         <button class="act" id="open">Open</button>
       </div>
     </div>
+    <div class="compact" id="compact">
+      <span class="c-focus" id="c-focus">25:00</span>
+      <span class="c-now" id="c-now">00:00</span>
+      <div class="c-edge"></div>
+      <div class="c-tools" id="c-tools">
+        <button id="c-toggle" title="Start / pause">▶</button>
+        <button id="c-open" title="Open Ferna Pomoro">▣</button>
+        <button id="c-close" title="Hide the overlay">✕</button>
+      </div>
+    </div>
+
     <script src="mini.js"></script>
   </body>
 </html>

@@ -19,6 +19,36 @@ const MINI_SIZES = {
 
 const DEFAULT_MINI_SIZE = 'medium';
 
+/**
+ * The ultra-compact overlay: nothing but the countdown and the time of day,
+ * meant to sit above a full-screen window where the taskbar cannot be seen.
+ * These are the sizes at 100%; the whole window is scaled from there, so the
+ * two numbers always keep their proportions.
+ */
+const MINI_COMPACT = {
+  vertical: { width: 118, height: 78 },
+  horizontal: { width: 214, height: 52 },
+};
+
+const DEFAULT_COMPACT_LAYOUT = 'vertical';
+
+/** 'vertical' | 'horizontal', with anything unrecognised stacked. */
+function miniCompactLayout(settings = {}) {
+  return MINI_COMPACT[settings.miniCompactLayout] ? settings.miniCompactLayout : DEFAULT_COMPACT_LAYOUT;
+}
+
+/** How far the overlay is scaled: 60% to 250% of its natural size. */
+function miniScale(settings = {}) {
+  const value = Number(settings.miniScale);
+  if (!Number.isFinite(value)) return 1;
+  return Math.min(2.5, Math.max(0.6, value));
+}
+
+/** The page's zoom factor — what makes both numbers grow together. */
+function miniZoom(settings = {}) {
+  return settings.miniCompact ? miniScale(settings) : 1;
+}
+
 /** The size name, with anything unrecognised falling back to medium. */
 function miniSizeName(settings = {}) {
   return MINI_SIZES[settings.miniSize] ? settings.miniSize : DEFAULT_MINI_SIZE;
@@ -26,6 +56,11 @@ function miniSizeName(settings = {}) {
 
 /** Outer window size for the current settings. */
 function miniWindowSize(settings = {}) {
+  if (settings.miniCompact) {
+    const base = MINI_COMPACT[miniCompactLayout(settings)];
+    const scale = miniScale(settings);
+    return { width: Math.round(base.width * scale), height: Math.round(base.height * scale) };
+  }
   const size = MINI_SIZES[miniSizeName(settings)];
   const showTask = settings.miniShowTask !== false;
   return {
@@ -44,4 +79,15 @@ function miniOpacity(settings = {}) {
   return Math.min(1, Math.max(0.3, value));
 }
 
-module.exports = { MINI_SIZES, DEFAULT_MINI_SIZE, miniSizeName, miniWindowSize, miniOpacity };
+module.exports = {
+  MINI_SIZES,
+  MINI_COMPACT,
+  DEFAULT_MINI_SIZE,
+  DEFAULT_COMPACT_LAYOUT,
+  miniSizeName,
+  miniCompactLayout,
+  miniScale,
+  miniZoom,
+  miniWindowSize,
+  miniOpacity,
+};
